@@ -1,0 +1,9 @@
+from app.core.db import Database
+class IdentityService:
+    def __init__(self,db:Database): self.db=db
+    def authorize_credential(self,credential_id):
+        with self.db.connect() as c:
+            r=c.execute("SELECT c.credential_id,c.member_id,c.status,m.status member_status FROM identity_credentials c JOIN identity_members m ON m.member_id=c.member_id WHERE c.credential_id=?",(credential_id,)).fetchone()
+        if not r: return {"authorized":False,"reason":"credential_not_found"}
+        if r["status"]!="active" or r["member_status"]!="active": return {"authorized":False,"reason":"inactive"}
+        return {"authorized":True,"credential_id":r["credential_id"],"member_id":r["member_id"],"reason":"authorized"}
