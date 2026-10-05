@@ -1,0 +1,2 @@
+-- Runtime migration is packaged under app/migrations/002_payment_readiness.sql.
+-- This file is kept as the repository-level canonical migration reference.
