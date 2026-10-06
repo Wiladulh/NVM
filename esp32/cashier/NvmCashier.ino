@@ -1,12 +1,16 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include "NvmKeypad.h"
 #include "NvmCardReader.h"
 
 const char* WIFI_SSID="CHANGE_ME";
 const char* WIFI_PASSWORD="CHANGE_ME";
 const char* NVM_BASE_URL="http://192.168.1.24:8080";
 const char* DEVICE_ID="cashier-01";
+LiquidCrystal_I2C lcd(0x27,16,2);
 
 #define PN532_SDA 21
 #define PN532_SCL 22
