@@ -1,46 +1,31 @@
-# NVM ESP32-S3 Vending
+# NVM ESP32-S3 Vending — RC522 / PN532 Auto Detect
 
-Vending hardware integrates:
-- PN532 NFC over I2C
-- SSD1306 128x64 I2C display
-- three buttons: UP, DOWN, SELECT
-- servo dispenser
-- Wi-Fi heartbeat and NVM API
+Vending supports both RC522 and PN532. Startup probes PN532 first, then falls back to RC522 automatically.
 
 ## Libraries
 
 Install from Arduino Library Manager:
 - Adafruit PN532
+- MFRC522
 - Adafruit GFX Library
 - Adafruit SSD1306
 - ESP32Servo
 
-## Default wiring
+## Default reader wiring
 
-ESP32-S3 defaults in NvmVending.ino:
-- I2C SDA GPIO 8
-- I2C SCL GPIO 9
-- PN532 IRQ GPIO 7
-- PN532 RESET GPIO 10
-- UP GPIO 4
-- DOWN GPIO 5
-- SELECT GPIO 6
-- Servo GPIO 3
-- OLED I2C address 0x3C
+PN532 I2C:
+- SDA GPIO 8
+- SCL GPIO 9
+- IRQ GPIO 7
+- RESET GPIO 10
 
-Change constants for the actual ESP32-S3 board and wiring.
+RC522 SPI:
+- SCK GPIO 12
+- MISO GPIO 13
+- MOSI GPIO 11
+- SS GPIO 14
+- RST GPIO 15
 
-## Flow
+Change constants in NvmVending.ino for the actual ESP32-S3 board and wiring.
 
-1. Vending downloads product/stock from NVM.
-2. UP/DOWN selects a product.
-3. SELECT displays the ready state.
-4. Customer taps NFC.
-5. UID becomes nfc-<lowercase hex UID>.
-6. NVM resolves the credential to the member's active account.
-7. Vending creates and authorizes the transaction.
-8. Servo dispenses.
-9. Vending reports successful dispensing.
-10. NVM decrements stock. If dispensing fails, NVM refunds the payment.
-
-The server remains authoritative for authorization, balance, payment, stock and transaction state.
+The UID is converted to nfc-<lowercase hexadecimal UID>. The NVM server remains authoritative for credential, account, balance, stock, transaction, and refund state.

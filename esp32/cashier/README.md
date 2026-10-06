@@ -1,42 +1,35 @@
-# NVM ESP32 Cashier — PN532 NFC
+# NVM ESP32 Cashier — RC522 / PN532 Auto Detect
 
-Cashier uses PN532 over I2C and sends NFC payments to the NVM API.
+Cashier supports both RC522 and PN532. On startup it probes PN532 first, then falls back to RC522 automatically.
 
-## Arduino library
+## Libraries
 
-Install **Adafruit PN532** from Arduino Library Manager.
+Install from Arduino Library Manager:
+- Adafruit PN532
+- MFRC522
 
-## Wiring
+## Default reader wiring
 
-Default sketch pins:
+PN532 I2C:
+- SDA GPIO 21
+- SCL GPIO 22
+- IRQ GPIO 4
+- RESET GPIO 5
 
-- PN532 SDA -> ESP32 GPIO 21
-- PN532 SCL -> ESP32 GPIO 22
-- PN532 IRQ -> ESP32 GPIO 4
-- PN532 RESET -> ESP32 GPIO 5
-- PN532 GND -> ESP32 GND
-- PN532 VCC -> module-supported supply
+RC522 SPI:
+- SCK GPIO 18
+- MISO GPIO 19
+- MOSI GPIO 23
+- SS GPIO 27
+- RST GPIO 26
 
-If the module uses different pins, change the PN532_* constants in NvmCashier.ino.
+Change constants in NvmCashier.ino for the actual wiring.
 
-## NFC credential format
+The UID is converted to nfc-<lowercase hexadecimal UID>, so the same physical card produces the same NVM credential_id regardless of reader type.
 
-The sketch converts the physical NFC UID to the form nfc-<lowercase hexadecimal UID>.
-
-Example UID 04 A1 B2 C3 D4 55 66 becomes nfc-04a1b2c3d45566.
-
-That value must be provisioned as the member credential_id in NVM before payment.
-
-## Serial test
-
-After Wi-Fi and NFC initialization:
-
+Serial:
 SET <account_id> <amount>
+Then tap the card.
 
-Then tap the NFC credential. The sketch automatically calls POST /api/v1/cashier/payments.
-
-Manual API harness remains available:
-
+Manual:
 PAY <credential_id> <account_id> <amount> <sequence>
-
-The server remains authoritative for credential authorization, account ownership, balance, idempotency and ledger debit.
