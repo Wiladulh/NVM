@@ -72,10 +72,36 @@ void scanCard(){
   delay(700);
 }
 
-void setup(){
+
+void lcdShow(String a,String b=""){
+  lcd.setCursor(0,0); lcd.print("                ");
+  lcd.setCursor(0,0); lcd.print(a.substring(0,16));
+  lcd.setCursor(0,1); lcd.print("                ");
+  lcd.setCursor(0,1); lcd.print(b.substring(0,16));
+}
+String readKeyDigits(const char* title,bool masked){
+  String s=""; lcdShow(title,"");
+  while(true){
+    char k=nvmKeypad.getKey();
+    if(k>='0'&&k<='9'&&s.length()<9){
+      s+=k; String v="";
+      for(size_t i=0;i<s.length();++i) v+=masked?"*":String(s[i]);
+      lcdShow(title,v);
+    }else if(k=='*'&&!s.isEmpty()){
+      s.remove(s.length()-1);
+    }else if(k=='#'&&!s.isEmpty()){
+      return s;
+    }
+    delay(5);
+  }
+}
+long readCashierAmount(){
+  return readKeyDigits("Nominal:","").toInt();
+}
+\nvoid setup(){
   Serial.begin(115200); delay(300); connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
-  Serial.println("Commands: SET account amount | PAY credential account amount sequence");
+  lcdShow("KASIR NVM","Masukkan nominal");
 }
 
 void loop(){
