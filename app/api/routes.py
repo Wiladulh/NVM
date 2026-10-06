@@ -229,6 +229,7 @@ def build_router(db):
         except PermissionError as e:
             raise HTTPException(403, str(e))
         except ValueError as e:
-            raise HTTPException(400, str(e))
+            code = str(e)
+            raise HTTPException(409 if code == "insufficient_balance" else 400, code)
 
     return r
