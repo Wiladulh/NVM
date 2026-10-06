@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+name="nvm"
+description="NVM Natura Vending Machine server"
+command="/opt/nvm/venv/bin/uvicorn"
+command_args="app.main:app --host ${NVM_HOST:-0.0.0.0} --port ${NVM_PORT:-8011}"
+command_user="${NVM_USER:-root}"
+directory="/opt/nvm"
+pidfile="/run/nvm.pid"
+command_background="yes"
+output_log="/var/log/nvm.log"
+error_log="/var/log/nvm.log"
+
+depend() {
+  need net
+  after firewall
+}
+
+start_pre() {
+  checkpath --directory --owner "${NVM_USER:-root}" /var/lib/nvm
+  checkpath --file --owner "${NVM_USER:-root}" /var/log/nvm.log
+}
