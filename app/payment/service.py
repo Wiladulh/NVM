@@ -43,5 +43,6 @@ class PaymentService:
                       ("payment", "payment_transaction", tx,
                        f"completed:{method}:{provider}:device={device_id or '-'}:financial={financial_tx['transaction_id']}"))
             c.commit()
+        balance = self.financial.balance(account_id)
         return {"transaction_id": tx, "status": "completed", "amount": amount,
-                "method": method, "provider": provider, "device_id": device_id}
+                "method": method, "provider": provider, "device_id": device_id, "balance": balance}
