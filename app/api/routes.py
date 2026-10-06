@@ -7,14 +7,17 @@ from app.vending.service import VendingService
 
 class PaymentRequest(BaseModel):
     credential_id: str
-    account_id: str
-    amount: int
+    account_id: str | None = None
+    amount: int | None = None
     reference: str | None = None
     method: str = "NFC"
     provider: str = "local"
     idempotency_key: str | None = None
     device_id: str | None = None
     pin: str | None = None
+    original_amount: int | None = None
+    discount_amount: int = 0
+    promo_id: str | None = None
 
 class PinRequest(BaseModel):
     pin: str
@@ -224,7 +227,8 @@ def build_router(db):
         try:return payments.pay(**q.model_dump())
         except PermissionError as e:raise HTTPException(403,str(e))
         except ValueError as e:
-            code=str(e);raise HTTPException(409 if code=="insufficient_balance" else 400,code)
+            code=str(e)
+            raise HTTPException(409 if code in {"insufficient_balance", "idempotency_key_conflict"} else 400,code)
 
     @r.post("/cashier/payments")
     def cashier_payment(q:PaymentRequest):
@@ -234,9 +238,11 @@ def build_router(db):
                 device=c.execute("SELECT device_id,status FROM device_registry WHERE device_id=?",(q.device_id,)).fetchone()
             if not device or device["status"]!="active":raise HTTPException(403,"device_not_active")
             if q.method!="NFC":raise HTTPException(400,"cashier_requires_nfc")
+            if q.provider!="local":raise HTTPException(400,"invalid_nfc_provider")
             return payments.pay(**q.model_dump())
         except PermissionError as e:raise HTTPException(403,str(e))
         except ValueError as e:
-            code=str(e);raise HTTPException(409 if code=="insufficient_balance" else 400,code)
+            code=str(e)
+            raise HTTPException(409 if code in {"insufficient_balance", "idempotency_key_conflict"} else 400,code)
 
     return r
