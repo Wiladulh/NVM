@@ -23,6 +23,11 @@ class Database:
         with self.connect() as c:
             for path in paths:
                 if path.name == "011_nfc_payment_hardening.sql":
+                    marker = c.execute(
+                        "SELECT value FROM system_meta WHERE key='nfc_payment_architecture_version'"
+                    ).fetchone()
+                    if marker and marker[0] == "002":
+                        continue
                     for table in ("identity_credentials", "credential_registry"):
                         columns = {row[1] for row in c.execute(f"PRAGMA table_info({table})")}
                         additions = {
