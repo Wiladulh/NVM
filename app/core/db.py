@@ -241,4 +241,12 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS ix_payment_device "
                 "ON payment_transactions(device_id,created_at)"
             )
+            device_columns = {row[1] for row in c.execute("PRAGMA table_info(device_registry)")}
+            for name, definition in {
+                "auth_key_hash": "TEXT",
+                "auth_key_hint": "TEXT",
+            }.items():
+                if name not in device_columns:
+                    c.execute(f"ALTER TABLE device_registry ADD COLUMN {name} {definition}")
+            c.execute("CREATE INDEX IF NOT EXISTS ix_device_auth ON device_registry(device_id,auth_key_hash)")
             c.commit()
