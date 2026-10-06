@@ -15,13 +15,14 @@ def test_cashier_heartbeat_and_nfc_payment():
                 c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
                 c.execute("INSERT INTO financial_ledger(account_id,direction,amount,reference) VALUES('a1','credit',50000,'seed')")
                 c.commit()
+            assert client.post("/api/v1/members/m1/pin", json={"pin":"1234"}).status_code == 200
             h = client.post("/api/v1/devices/cashier-01/heartbeat",
                             json={"device_type":"esp32-cashier","status":"active"})
             assert h.status_code == 200
             p = client.post("/api/v1/cashier/payments", json={
                 "device_id":"cashier-01","credential_id":"cred1","account_id":"a1",
                 "amount":10000,"method":"NFC","provider":"local",
-                "idempotency_key":"cashier-01:1"
+                "idempotency_key":"cashier-01:1","pin":"1234"
             })
             assert p.status_code == 200
             assert p.json()["device_id"] == "cashier-01"
