@@ -11,6 +11,7 @@ const char* WIFI_SSID="CHANGE_ME";
 const char* WIFI_PASSWORD="CHANGE_ME";
 const char* NVM_BASE_URL="http://192.168.1.24:8080";
 const char* DEVICE_ID="vm-01";
+const char* NVM_DEVICE_KEY="CHANGE_DEVICE_KEY";
 
 #define I2C_SDA 8
 #define I2C_SCL 9
@@ -24,12 +25,13 @@ const char* DEVICE_ID="vm-01";
 #define BUTTON_UP 4
 #define BUTTON_DOWN 5
 #define BUTTON_SELECT 6
-#define SERVO_PIN 3
+#define SERVO_COUNT 5
+const int SERVO_PINS[SERVO_COUNT]={3,16,17,18,21};
 #define OLED_ADDR 0x3C
 
 NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_SS,RC522_RST);
 Adafruit_SSD1306 display(128,64,&Wire,-1);
-Servo dispenser;
+Servo dispensers[SERVO_COUNT];
 unsigned long lastHeartbeat=0;
 bool readerReady=false,displayReady=false;
 int selectedIndex=0,productCount=0;
@@ -85,12 +87,8 @@ bool products(){
   if(selectedIndex>=productCount)selectedIndex=0;Product&x=productsList[selectedIndex];
   showMessage("SELECT PRODUCT",x.name,"Rp "+String(x.price));return true;
 }
-String resolveAccount(const String&credential){
-  int code=0;String reply=request("GET","/api/v1/credentials/"+credential+"/account","",code);
-  return (code>=200&&code<300)?jsonString(reply,"account_id"):"";
-}
-String beginTransaction(const String&product,const String&credential,const String&account,const String&seq){
-  String body="{\"product_id\":\""+product+"\",\"credential_id\":\""+credential+"\",\"account_id\":\""+account+"\",\"idempotency_key\":\""+String(DEVICE_ID)+":"+seq+"\"}";
+String beginTransaction(const String&product,const String&credential,const String&seq){
+  String body="{\"product_id\":\""+product+"\",\"credential_id\":\""+credential+"\",\"idempotency_key\":\""+String(DEVICE_ID)+":"+seq+"\"}";
   int code=0;String reply=request("POST",String("/api/v1/vending/")+DEVICE_ID+"/transactions",body,code);
   Serial.printf("BEGIN %d %s\n",code,reply.c_str());return jsonString(reply,"transaction_id");
 }
@@ -98,8 +96,10 @@ bool authorize(const String&tx){
   int code=0;String reply=request("POST","/api/v1/vending/transactions/"+tx+"/authorize","",code);
   Serial.printf("AUTHORIZE %d %s\n",code,reply.c_str());return code>=200&&code<300;
 }
-bool dispense(const String&tx){
-  dispenser.write(70);delay(700);dispenser.write(10);
+bool dispense(const String&tx,int servoChannel){
+  if(servoChannel<1||servoChannel>SERVO_COUNT)return false;
+  Servo&servo=dispensers[servoChannel-1];
+  servo.write(70);delay(700);servo.write(10);
   int code=0;String reply=request("POST","/api/v1/vending/transactions/"+tx+"/dispense","{\"success\":true}",code);
   Serial.printf("DISPENSE %d %s\n",code,reply.c_str());return code>=200&&code<300;
 }
@@ -108,11 +108,10 @@ void scanCard(){
   uint8_t uid[7]={0},len=0;if(!card.readUID(uid,len))return;
   String credential="nfc-";for(uint8_t i=0;i<len;i++){if(uid[i]<16)credential+="0";credential+=String(uid[i],HEX);}credential.toLowerCase();
   showMessage("CARD DETECTED",credential,"Checking...");
-  String account=resolveAccount(credential);if(!account.length()){showMessage("CARD REJECTED","No active account");delay(1200);return;}
-  String tx=beginTransaction(x.id,credential,account,String(millis()));
+  String tx=beginTransaction(x.id,credential,String(millis()));
   if(!tx.length()||!authorize(tx)){showMessage("PAYMENT FAILED");delay(1200);return;}
   showMessage("PAYMENT OK",x.name,"Dispensing...");
-  if(dispense(tx)){showMessage("TAKE PRODUCT",x.name);delay(800);products();}else showMessage("DISPENSE ERROR","Payment refunded");
+  if(dispense(tx,x.servo_channel)){showMessage("TAKE PRODUCT",x.name);delay(800);products();}else showMessage("DISPENSE ERROR","Payment refunded");
   delay(1000);
 }
 void setup(){
