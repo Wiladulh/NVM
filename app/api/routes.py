@@ -55,6 +55,27 @@ def build_router(db):
     def system():
         return {"service": "nvm", "api_version": "v1"}
 
+    @r.get("/audit")
+    def audit(limit: int = 100):
+        limit = max(1, min(limit, 500))
+        with db.connect() as c:
+            rows = c.execute(
+                """SELECT id,event_type,entity_type,entity_id,detail,created_at
+                   FROM audit_events ORDER BY id DESC LIMIT ?""", (limit,)
+            ).fetchall()
+        return {"events": [dict(x) for x in rows]}
+
+    @r.get("/devices/{device_id}/events")
+    def device_events(device_id, limit: int = 100):
+        limit = max(1, min(limit, 500))
+        with db.connect() as c:
+            rows = c.execute(
+                """SELECT id,device_id,event_type,payload,created_at
+                   FROM device_events WHERE device_id=?
+                   ORDER BY id DESC LIMIT ?""", (device_id, limit)
+            ).fetchall()
+        return {"device_id": device_id, "events": [dict(x) for x in rows]}
+
     @r.get("/dashboard")
     def dashboard():
         with db.connect() as c:
