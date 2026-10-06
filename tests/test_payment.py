@@ -28,3 +28,34 @@ def test_qris_is_a_supported_future_method():
         result=PaymentService(db).pay("cred-1","acct-1",1000,method="QRIS",provider="future-qris",idempotency_key="q-1")
         assert result["method"] == "QRIS"
         assert result["provider"] == "future-qris"
+
+def test_payment_uses_financial_core_and_rejects_account_mismatch():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        with db.connect() as c:
+            c.execute("INSERT INTO identity_members(member_id,name) VALUES('member-2','Other')")
+            c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('acct-2','member-2','savings')")
+            c.execute("INSERT INTO financial_ledger(account_id,direction,amount,reference) VALUES('acct-2','credit',50000,'seed')")
+            c.commit()
+        p=PaymentService(db)
+        try:
+            p.pay("cred-1","acct-2",1000,method="NFC")
+            assert False
+        except PermissionError as e:
+            assert str(e) == "credential_account_mismatch"
+        with db.connect() as c:
+            assert c.execute("SELECT COUNT(*) FROM payment_transactions").fetchone()[0] == 0
+            assert c.execute("SELECT COUNT(*) FROM financial_transactions").fetchone()[0] == 0
+
+def test_payment_insufficient_balance_is_atomic():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        try:
+            PaymentService(db).pay("cred-1","acct-1",100001,method="NFC",idempotency_key="too-much")
+            assert False
+        except ValueError as e:
+            assert str(e) == "insufficient_balance"
+        with db.connect() as c:
+            assert c.execute("SELECT COUNT(*) FROM payment_transactions").fetchone()[0] == 0
+            assert c.execute("SELECT COUNT(*) FROM financial_transactions").fetchone()[0] == 0
+            assert c.execute("SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) FROM financial_ledger WHERE account_id='acct-1'").fetchone()[0] == 100000
