@@ -9,7 +9,7 @@ class PaymentService:
         self.financial = FinancialService(db)
 
     def pay(self, credential_id, account_id, amount, reference=None,
-            method="NFC", provider="local", idempotency_key=None, device_id=None):
+            method="NFC", provider="local", idempotency_key=None, device_id=None, pin=None):
         if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
             raise ValueError("amount_must_be_positive_integer")
         if method not in {"NFC", "QRIS", "CASH"}:
@@ -25,12 +25,20 @@ class PaymentService:
                 raise ValueError("account_not_found")
             if account["member_id"] != auth["member_id"]:
                 raise PermissionError("credential_account_mismatch")
+            if method == "NFC" and device_id is not None:
+                if pin is None:
+                    raise PermissionError("pin_required")
+                if not self.identity.verify_pin(auth["member_id"], pin):
+                    raise PermissionError("invalid_pin")
         with self.db.connect() as c:
             if idempotency_key:
                 row = c.execute("SELECT transaction_id,status,amount,method,provider FROM payment_transactions WHERE idempotency_key=?",
                                 (idempotency_key,)).fetchone()
                 if row:
-                    return dict(row)
+                    result = dict(row)
+                    result["device_id"] = device_id
+                    result["balance"] = self.financial.balance(account_id)
+                    return result
             tx = reference or "pay-" + uuid4().hex
             financial_tx = self.financial.debit_on_connection(
                 c, account_id, amount, reference=tx, idempotency_key="payment:" + tx
