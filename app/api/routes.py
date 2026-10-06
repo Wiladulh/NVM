@@ -32,6 +32,42 @@ def build_router(db):
     def system():
         return {"service": "nvm", "api_version": "v1"}
 
+    @r.get("/dashboard")
+    def dashboard():
+        with db.connect() as c:
+            members = c.execute(
+                "SELECT member_id,name,status,created_at FROM identity_members ORDER BY created_at DESC"
+            ).fetchall()
+            accounts = c.execute(
+                """SELECT a.account_id,a.member_id,m.name AS member_name,
+                          a.account_type,a.status,a.created_at
+                   FROM financial_accounts a
+                   JOIN identity_members m ON m.member_id=a.member_id
+                   ORDER BY a.created_at DESC"""
+            ).fetchall()
+            payments_rows = c.execute(
+                """SELECT transaction_id,credential_id,account_id,amount,status,method,provider,created_at
+                   FROM payment_transactions ORDER BY created_at DESC LIMIT 50"""
+            ).fetchall()
+            loans = c.execute(
+                """SELECT loan_id,member_id,principal,installment_amount,
+                          remaining_balance,status,created_at
+                   FROM loan_accounts ORDER BY created_at DESC LIMIT 50"""
+            ).fetchall()
+            machines = c.execute(
+                "SELECT machine_id,name,status,last_seen FROM vending_machines ORDER BY name"
+            ).fetchall()
+        return {
+            "members": [dict(x) for x in members],
+            "accounts": [
+                {**dict(x), "balance": financial.balance(x["account_id"])}
+                for x in accounts
+            ],
+            "payments": [dict(x) for x in payments_rows],
+            "loans": [dict(x) for x in loans],
+            "machines": [dict(x) for x in machines],
+        }
+
     @r.post("/access/{credential_id}")
     def access(credential_id):
         result = identity.authorize_credential(credential_id)
