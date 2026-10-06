@@ -34,3 +34,5 @@ def test_financial_idempotency_and_insufficient_balance():
             assert False
         except ValueError as e:
             assert str(e) == "insufficient_balance"
+
+# Financial core CI trigger: run against the complete main tree.
