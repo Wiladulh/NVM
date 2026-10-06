@@ -36,7 +36,8 @@ def test_vending_rejects_empty_and_failed_dispense():
         tx=f.begin("vm-01","water","vm-nfc","vm-acct","vend-fail")
         f.authorize(tx["transaction_id"])
         failed=f.dispense(tx["transaction_id"],False)
-        assert failed["status"]=="failed"
+        assert failed["status"]=="refunded"
+        assert failed["dispense_status"]=="failed"
         assert f.products("vm-01")[0]["stock"]==2
 
     
