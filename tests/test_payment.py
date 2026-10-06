@@ -59,3 +59,43 @@ def test_payment_insufficient_balance_is_atomic():
             assert c.execute("SELECT COUNT(*) FROM payment_transactions").fetchone()[0] == 0
             assert c.execute("SELECT COUNT(*) FROM financial_transactions").fetchone()[0] == 0
             assert c.execute("SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) FROM financial_ledger WHERE account_id='acct-1'").fetchone()[0] == 100000
+
+
+def test_nfc_payment_resolves_savings_account_from_credential():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        result=PaymentService(db).pay(
+            "cred-1", None, 25000, method="NFC",
+            idempotency_key="resolve-1"
+        )
+        assert result["final_amount"] == 25000
+        assert result["balance_before"] == 100000
+        assert result["balance_after"] == 75000
+
+
+def test_nfc_payment_rejects_idempotency_key_reuse_with_different_request():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        p=PaymentService(db)
+        p.pay("cred-1","acct-1",10000,method="NFC",idempotency_key="idem-conflict")
+        try:
+            p.pay("cred-1","acct-1",11000,method="NFC",idempotency_key="idem-conflict")
+            assert False
+        except ValueError as e:
+            assert str(e) == "idempotency_key_conflict"
+
+
+def test_nfc_payment_records_100_percent_promo_without_ledger_debit():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        result=PaymentService(db).pay(
+            "cred-1","acct-1",0,method="NFC",original_amount=5000,
+            discount_amount=5000,promo_id="promo-100",
+            idempotency_key="promo-100"
+        )
+        assert result["original_amount"] == 5000
+        assert result["discount_amount"] == 5000
+        assert result["final_amount"] == 0
+        assert result["ledger_reference"] is None
+        assert result["balance_before"] == 100000
+        assert result["balance_after"] == 100000
