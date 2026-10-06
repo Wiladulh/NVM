@@ -2,34 +2,463 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NVM Demo Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NVM Dashboard — Demo Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box}body{margin:0;font:14px system-ui,-apple-system,Segoe UI,sans-serif;background:#f3f6fa;color:#172033}
-header{background:#111827;color:#fff;padding:22px 18px}header h1{margin:0;font-size:22px}header p{margin:5px 0 0;color:#aeb8c8}
-.wrap{max-width:1100px;margin:auto;padding:16px}.nav{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.nav a{white-space:nowrap;background:#fff;padding:9px 13px;border-radius:9px;color:#334155;text-decoration:none;border:1px solid #e2e8f0}
-.status{display:inline-block;margin-top:12px;background:#14532d;color:#bbf7d0;padding:5px 10px;border-radius:99px;font-size:12px}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:15px;box-shadow:0 2px 8px #00000008}.num{font-size:24px;font-weight:700;margin-top:5px}.muted{color:#64748b;font-size:12px}
-section{margin-top:16px}h2{font-size:17px;margin:0 0 10px}.table{overflow:auto}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}th,td{text-align:left;padding:11px;border-bottom:1px solid #edf1f5;white-space:nowrap}th{background:#f8fafc;font-size:12px;color:#64748b}tr:last-child td{border-bottom:0}.pill{padding:4px 8px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px}
-@media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}.num{font-size:20px}}
+:root{
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --good: #10b981;
+  --bad: #ef4444;
+  --header-bg: #0f172a;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+*{box-sizing:border-box}
+
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+header {
+  background: var(--header-bg);
+  color: #fff;
+  padding: 20px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+header .top {
+  max-width: 1200px;
+  margin: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.sub {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.status {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 6px 12px;
+  border-radius: 30px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+nav::-webkit-scrollbar {
+  display: none;
+}
+
+nav a {
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow);
+}
+
+nav a:hover, nav a:focus {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: #f0f9ff;
+}
+
+main {
+  max-width: 1200px;
+  margin: auto;
+  padding: 8px 16px 40px;
+}
+
+.section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 16px 0;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: #1e293b;
+  letter-spacing: -0.3px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.value {
+  font-size: 24px;
+  font-weight: 800;
+  margin-top: 6px;
+  color: #0f172a;
+}
+
+.scroll {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #fff;
+}
+
+th, td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+th {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #f8fafc;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: #f8fafc;
+}
+
+form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+input, select, button {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
+}
+
+button:hover {
+  background: var(--accent-hover);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.result {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  color: #334155;
+}
+
+.hidden {
+  display: none;
+}
+
+@media(max-width: 600px) {
+  header { padding: 16px 12px; }
+  .brand { font-size: 17px; }
+  main { padding: 4px 8px 30px; }
+  .section { padding: 14px; margin: 10px 0; border-radius: 12px; }
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .card { padding: 12px; }
+  .value { font-size: 20px; }
+  th, td { padding: 10px; }
+}
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>NVM — Natura Vending Machine</h1><p>Dashboard Koperasi • Demo WebUI</p><span class="status">● Demo Online</span></div></header>
-<main class="wrap">
-<nav class="nav"><a href="#ringkasan">Ringkasan</a><a href="#rekening">Rekening</a><a href="#anggota">Anggota</a><a href="#pembayaran">Pembayaran</a><a href="#pinjaman">Pinjaman</a><a href="#vending">Vending</a><a href="#perangkat">Perangkat</a></nav>
-<section id="ringkasan"><div class="grid">
-<div class="card"><div class="muted">Anggota</div><div class="num">24</div></div>
-<div class="card"><div class="muted">Rekening Aktif</div><div class="num">24</div></div>
-<div class="card"><div class="muted">Pembayaran</div><div class="num">138</div></div>
-<div class="card"><div class="muted">Pinjaman Aktif</div><div class="num">7</div></div>
-</div></section>
-<section id="rekening"><h2>Saldo / Rekening</h2><div class="table"><table><tr><th>Rekening</th><th>Anggota</th><th>Jenis</th><th>Saldo</th></tr>
-<tr><td>member-account-01</td><td>Ahmad</td><td>Savings</td><td>Rp 850.000</td></tr><tr><td>member-account-02</td><td>Siti</td><td>Savings</td><td>Rp 1.250.000</td></tr><tr><td>member-account-03</td><td>Budi</td><td>Savings</td><td>Rp 425.000</td></tr></table></div></section>
-<section id="anggota"><h2>Anggota</h2><div class="table"><table><tr><th>ID</th><th>Nama</th><th>Status</th></tr><tr><td>NVM-MEMBER-01</td><td>Ahmad</td><td><span class="pill">active</span></td></tr><tr><td>NVM-MEMBER-02</td><td>Siti</td><td><span class="pill">active</span></td></tr><tr><td>NVM-MEMBER-03</td><td>Budi</td><td><span class="pill">active</span></td></tr></table></div></section>
-<section id="pembayaran"><h2>Pembayaran Terbaru</h2><div class="table"><table><tr><th>Transaksi</th><th>Metode</th><th>Jumlah</th><th>Status</th></tr><tr><td>pay-demo-001</td><td>NFC</td><td>Rp 15.000</td><td><span class="pill">completed</span></td></tr><tr><td>pay-demo-002</td><td>QRIS</td><td>Rp 25.000</td><td><span class="pill">completed</span></td></tr><tr><td>pay-demo-003</td><td>CASH</td><td>Rp 10.000</td><td><span class="pill">completed</span></td></tr></table></div></section>
-<section id="pinjaman"><h2>Pinjaman</h2><div class="grid"><div class="card"><div class="muted">test-loan-01</div><div class="num">Rp 800.000</div><div class="muted">Sisa pinjaman • aktif</div></div><div class="card"><div class="muted">Angsuran</div><div class="num">Rp 100.000</div><div class="muted">per pembayaran</div></div></div></section>
-<section id="vending"><h2>Vending Machine</h2><div class="grid"><div class="card"><b>vm-01</b><p class="muted">Online • 12 produk</p></div><div class="card"><b>vm-02</b><p class="muted">Online • 9 produk</p></div></div></section>
-<section id="perangkat"><h2>Perangkat</h2><div class="table"><table><tr><th>Device</th><th>Tipe</th><th>Status</th></tr><tr><td>cashier-01</td><td>Cashier NFC</td><td><span class="pill">active</span></td></tr><tr><td>vm-01</td><td>Vending</td><td><span class="pill">active</span></td></tr><tr><td>vm-02</td><td>Vending</td><td><span class="pill">active</span></td></tr></table></div></section>
+
+<header>
+  <div class="top">
+    <div>
+      <div class="brand">NVM — Natura Vending Machine</div>
+      <div class="sub">Dashboard Koperasi & Micro-Banking (Demo Mode)</div>
+    </div>
+    <div id="status" class="status">● demo-active</div>
+  </div>
+</header>
+
+<nav>
+  <a href="#ringkasan">Ringkasan</a>
+  <a href="#keuangan">Keuangan</a>
+  <a href="#anggota">Anggota</a>
+  <a href="#pembayaran">Pembayaran</a>
+  <a href="#vending">Vending</a>
+  <a href="#perangkat">Perangkat</a>
+</nav>
+
+<main>
+  <section id="ringkasan" class="section">
+    <h2>Ringkasan</h2>
+    <div id="summary" class="grid"></div>
+  </section>
+
+  <section id="keuangan" class="section">
+    <h2>Saldo & Rekening</h2>
+    <div id="accounts" class="scroll"></div>
+  </section>
+
+  <section class="section">
+    <h2>Deposit / Penarikan</h2>
+    <div class="hint">Gunakan Account ID anggota. (Mode Demo: Simulasi lokal)</div>
+    <form id="financialForm">
+      <input id="account" placeholder="Account ID" required value="ACC-001">
+      <input id="amount" type="number" min="1" placeholder="Jumlah (Rp)" required value="50000">
+      <select id="direction">
+        <option value="credit">Deposit / Kredit</option>
+        <option value="debit">Penarikan / Debit</option>
+      </select>
+      <input id="reference" placeholder="Referensi" value="Simulasi Demo">
+      <button>Proses</button>
+    </form>
+    <div id="financialResult" class="result">Klik tombol 'Proses' untuk melihat respons simulasi.</div>
+  </section>
+
+  <section id="anggota" class="section">
+    <h2>Anggota</h2>
+    <div id="members" class="scroll"></div>
+  </section>
+
+  <section id="pembayaran" class="section">
+    <h2>Pembayaran NFC / QRIS</h2>
+    <div class="hint">NFC, QRIS, dan CASH menggunakan payment core yang sama.</div>
+    <form id="paymentForm">
+      <input id="credential" placeholder="Credential ID" required value="NFC-998877">
+      <input id="payaccount" placeholder="Account ID" required value="ACC-001">
+      <input id="payamount" type="number" min="1" placeholder="Jumlah" required value="15000">
+      <select id="method">
+        <option>NFC</option>
+        <option>QRIS</option>
+        <option>CASH</option>
+      </select>
+      <input id="provider" placeholder="Provider" value="local">
+      <input id="idem" placeholder="Idempotency key" value="idem-demo-01">
+      <button>Bayar</button>
+    </form>
+    <div id="paymentResult" class="result">Klik tombol 'Bayar' untuk melihat respons simulasi.</div>
+  </section>
+
+  <section class="section">
+    <h2>Transaksi Pembayaran</h2>
+    <div id="payments" class="scroll"></div>
+  </section>
+
+  <section class="section">
+    <h2>Pinjaman</h2>
+    <div id="loans" class="scroll"></div>
+  </section>
+
+  <section id="vending" class="section">
+    <h2>Vending / Machine</h2>
+    <div id="machines" class="scroll"></div>
+  </section>
+
+  <section class="section">
+    <h2>Inventory Produk</h2>
+    <div id="products" class="scroll"></div>
+    <form id="productForm" style="margin-top:14px">
+      <input id="machineId" placeholder="Machine ID" required value="VM-01">
+      <input id="productId" placeholder="Product ID" required value="P-003">
+      <input id="productName" placeholder="Nama produk" required value="Kopi Hitam NVM">
+      <input id="productPrice" type="number" min="1" placeholder="Harga" required value="6000">
+      <input id="productStock" type="number" min="0" placeholder="Stok" required value="25">
+      <label class="check">
+        <input id="productEnabled" type="checkbox" checked> Aktif
+      </label>
+      <button>Simpan Produk</button>
+    </form>
+    <div id="productResult" class="result">Klik 'Simpan Produk' untuk melihat respons simulasi.</div>
+  </section>
+
+  <section id="perangkat" class="section">
+    <h2>Perangkat</h2>
+    <div id="devices" class="scroll"></div>
+  </section>
 </main>
-</body></html>
+
+<script>
+const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('id-ID').format(Number(n)||0);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function table(rows,cols){if(!rows?.length)return '<p class="hint" style="padding:16px;">Belum ada data.</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+
+// MOCK DATA UNTUK PREVIEW DEMO
+const mockData = {
+  members: [
+    { member_id: "NVM-MEMBER-01", name: "Budi Santoso", status: "active", created_at: "2026-01-10" },
+    { member_id: "NVM-MEMBER-02", name: "Siti Aminah", status: "active", created_at: "2026-01-12" },
+    { member_id: "NVM-MEMBER-03", name: "Joko Widodo", status: "active", created_at: "2026-02-01" }
+  ],
+  accounts: [
+    { account_id: "ACC-001", member_name: "Budi Santoso", account_type: "savings", balance: 1250000, status: "active" },
+    { account_id: "ACC-002", member_name: "Siti Aminah", account_type: "savings", balance: 750000, status: "active" }
+  ],
+  payments: [
+    { transaction_id: "TXN-8812", account_id: "ACC-001", amount: 10000, method: "NFC", provider: "local", device_id: "ESP32-DEV-01", status: "success", created_at: "2026-10-06 10:15" },
+    { transaction_id: "TXN-8813", account_id: "ACC-002", amount: 5000, method: "QRIS", provider: "local", device_id: "ESP32-DEV-02", status: "success", created_at: "2026-10-06 11:20" }
+  ],
+  loans: [
+    { loan_id: "LOAN-01", member_id: "NVM-MEMBER-01", principal: 500000, installment_amount: 55000, remaining_balance: 440000, status: "running" }
+  ],
+  machines: [
+    { machine_id: "VM-01", name: "Vending Utama Desa", status: "online", last_seen: "Baru saja" },
+    { machine_id: "VM-02", name: "Vending Pos Satpam", status: "online", last_seen: "1 menit lalu" }
+  ],
+  products: [
+    { product_id: "P-001", machine_id: "VM-01", name: "Teh Botol Kotak", price: 4000, stock: 18, enabled: true },
+    { product_id: "P-002", machine_id: "VM-01", name: "Roti Keju Lezat", price: 5000, stock: 12, enabled: true }
+  ],
+  devices: [
+    { device_id: "ESP32-DEV-01", device_type: "NFC Reader", status: "online", last_seen: "Baru saja" },
+    { device_id: "ESP32-DEV-02", device_type: "Vending Controller", status: "online", last_seen: "Baru saja" }
+  ]
+};
+
+function load(){
+  $('status').textContent='● online (demo)';
+  const d = mockData;
+  $('summary').innerHTML=[['Anggota',d.members.length],['Rekening',d.accounts.length],['Pembayaran',d.payments.length],['Pinjaman',d.loans.length],['Vending',d.machines.length],['Perangkat',d.devices.length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+  $('accounts').innerHTML=table(d.accounts.map(x=>({...x,balance:money(x.balance)})),['account_id','member_name','account_type','balance','status']);
+  $('members').innerHTML=table(d.members,['member_id','name','status','created_at']);
+  $('payments').innerHTML=table(d.payments.map(x=>({...x,amount:money(x.amount)})),['transaction_id','account_id','amount','method','provider','device_id','status','created_at']);
+  $('loans').innerHTML=table(d.loans.map(x=>({...x,principal:money(x.principal),installment_amount:money(x.installment_amount),remaining_balance:money(x.remaining_balance)})),['loan_id','member_id','principal','installment_amount','remaining_balance','status']);
+  $('machines').innerHTML=table(d.machines,['machine_id','name','status','last_seen']);
+  $('products').innerHTML=table(d.products.map(x=>({...x,price:money(x.price),enabled:x.enabled?'yes':'no'})),['product_id','machine_id','name','price','stock','enabled']);
+  $('devices').innerHTML=table(d.devices,['device_id','device_type','status','last_seen']);
+}
+
+// Simulasi aksi form di demo mode
+$('financialForm').onsubmit=e=>{e.preventDefault();$('financialResult').textContent=JSON.stringify({status:"success",message:"Simulasi deposit/penarikan berhasil dicatat",account:$('account').value,amount:+($('amount').value),direction:$('direction').value},null,2);};
+$('paymentForm').onsubmit=e=>{e.preventDefault();$('paymentResult').textContent=JSON.stringify({status:"success",transaction_id:"TXN-SIMULATED-99",credential_id:$('credential').value,account_id:$('payaccount').value,amount:+($('payamount').value),method:$('method').value},null,2);};
+$('productForm').onsubmit=e=>{e.preventDefault();$('productResult').textContent=JSON.stringify({status:"success",message:"Simulasi update produk berhasil",machine_id:$('machineId').value,product_id:$('productId').value,name:$('productName').value,price:+($('productPrice').value),stock:+($('productStock').value)},null,2);};
+
+load();
+</script>
+</body>
+</html>
