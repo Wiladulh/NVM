@@ -56,6 +56,8 @@ class VendingBeginRequest(BaseModel):
     credential_id: str
     account_id: str
     idempotency_key: str
+    payment_method: str = "NFC"
+    payment_provider: str = "local"
 
 class VendingDispenseRequest(BaseModel):
     success: bool = True
@@ -203,8 +205,8 @@ def build_router(db):
 
     @r.post("/vending/{machine_id}/transactions")
     def vending_begin(machine_id,q:VendingBeginRequest):
-        try:return vending.begin(machine_id,q.product_id,q.credential_id,q.account_id,q.idempotency_key)
-        except ValueError as e:raise HTTPException(409 if str(e) in {"out_of_stock","machine_not_active"} else 400,str(e))
+        try:return vending.begin(machine_id,q.product_id,q.credential_id,q.account_id,q.idempotency_key,q.payment_method,q.payment_provider)
+        except ValueError as e:raise HTTPException(409 if str(e) in {"out_of_stock","machine_not_active","qris_payment_provider_not_activated"} else 400,str(e))
 
     @r.post("/vending/transactions/{transaction_id}/authorize")
     def vending_authorize(transaction_id):
