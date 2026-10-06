@@ -22,6 +22,92 @@ class Database:
 
         with self.connect() as c:
             for path in paths:
+                if path.name == "011_nfc_payment_hardening.sql":
+                    for table in ("identity_credentials", "credential_registry"):
+                        columns = {row[1] for row in c.execute(f"PRAGMA table_info({table})")}
+                        additions = {
+                            "pin_failed_attempts": "INTEGER NOT NULL DEFAULT 0",
+                            "pin_blocked": "INTEGER NOT NULL DEFAULT 0",
+                        }
+                        if table == "identity_credentials":
+                            additions["enabled"] = "INTEGER NOT NULL DEFAULT 1"
+                        for name, definition in additions.items():
+                            if name not in columns:
+                                c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+                    columns = {row[1] for row in c.execute("PRAGMA table_info(payment_transactions)")}
+                    target = {
+                        "transaction_id": "TEXT PRIMARY KEY",
+                        "credential_id": "TEXT NOT NULL",
+                        "account_id": "TEXT NOT NULL",
+                        "amount": "INTEGER NOT NULL CHECK(amount>=0)",
+                        "status": "TEXT NOT NULL",
+                        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                        "method": "TEXT NOT NULL DEFAULT 'NFC'",
+                        "provider": "TEXT NOT NULL DEFAULT 'local'",
+                        "idempotency_key": "TEXT",
+                        "provider_transaction_id": "TEXT",
+                        "provider_reference": "TEXT",
+                        "failure_reason": "TEXT",
+                        "device_id": "TEXT",
+                        "original_amount": "INTEGER",
+                        "discount_amount": "INTEGER NOT NULL DEFAULT 0",
+                        "final_amount": "INTEGER",
+                        "promo_id": "TEXT",
+                        "balance_before": "INTEGER",
+                        "balance_after": "INTEGER",
+                    }
+                    select_defaults = {
+                        "method": "'NFC'",
+                        "provider": "'local'",
+                        "idempotency_key": "NULL",
+                        "provider_transaction_id": "NULL",
+                        "provider_reference": "NULL",
+                        "failure_reason": "NULL",
+                        "device_id": "NULL",
+                        "original_amount": "amount",
+                        "discount_amount": "0",
+                        "final_amount": "amount",
+                        "promo_id": "NULL",
+                        "balance_before": "NULL",
+                        "balance_after": "NULL",
+                    }
+                    select_parts = [
+                        name if name in columns else select_defaults.get(name, "NULL")
+                        for name in target
+                    ]
+                    c.execute("CREATE TABLE payment_transactions_new(" +
+                              ",".join(f"{name} {definition}" for name, definition in target.items()) +
+                              ")")
+                    c.execute(
+                        "INSERT INTO payment_transactions_new(" +
+                        ",".join(target.keys()) + ") SELECT " +
+                        ",".join(select_parts) + " FROM payment_transactions"
+                    )
+                    c.execute("DROP TABLE payment_transactions")
+                    c.execute("ALTER TABLE payment_transactions_new RENAME TO payment_transactions")
+                    c.execute(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_idempotency "
+                        "ON payment_transactions(idempotency_key) WHERE idempotency_key IS NOT NULL"
+                    )
+                    c.execute(
+                        "CREATE INDEX IF NOT EXISTS ix_payment_provider_tx "
+                        "ON payment_transactions(provider,provider_transaction_id)"
+                    )
+                    c.execute(
+                        "CREATE INDEX IF NOT EXISTS ix_payment_device "
+                        "ON payment_transactions(device_id,created_at)"
+                    )
+                    c.execute(
+                        "CREATE INDEX IF NOT EXISTS ix_payment_account_created "
+                        "ON payment_transactions(account_id,created_at)"
+                    )
+                    c.execute(
+                        "INSERT OR IGNORE INTO system_meta(key,value) "
+                        "VALUES('nfc_payment_architecture_version','002')"
+                    )
+                    continue
+
                 if path.name == "008_member_pin.sql":
                     columns = {row[1] for row in c.execute("PRAGMA table_info(identity_members)")}
                     if "pin_salt" not in columns: c.execute("ALTER TABLE identity_members ADD COLUMN pin_salt TEXT")
