@@ -14,6 +14,10 @@ class PaymentRequest(BaseModel):
     provider: str = "local"
     idempotency_key: str | None = None
     device_id: str | None = None
+    pin: str | None = None
+
+class PinRequest(BaseModel):
+    pin: str
 
 class DeviceHeartbeatRequest(BaseModel):
     device_type: str
@@ -102,6 +106,11 @@ def build_router(db):
             "products": [dict(x) for x in products],
             "devices": [dict(x) for x in devices],
         }
+
+    @r.post("/members/{member_id}/pin")
+    def set_member_pin(member_id, q: PinRequest):
+        try: return identity.set_pin(member_id, q.pin)
+        except ValueError as e: raise HTTPException(400, str(e))
 
     @r.post("/devices/{device_id}/heartbeat")
     def device_heartbeat(device_id, q: DeviceHeartbeatRequest):
