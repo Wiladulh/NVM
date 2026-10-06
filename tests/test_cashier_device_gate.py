@@ -28,6 +28,9 @@ def test_cashier_payment_requires_active_registered_device():
                     "VALUES('member-account-01','credit',10000,'seed')"
                 )
 
+            pin = client.post("/api/v1/members/member-1/pin", json={"pin":"1234"})
+            assert pin.status_code == 200
+
             q = {
                 "device_id": "cashier-01",
                 "credential_id": "test-credential-01",
@@ -36,6 +39,7 @@ def test_cashier_payment_requires_active_registered_device():
                 "method": "NFC",
                 "provider": "local",
                 "idempotency_key": "cashier-01:1",
+                "pin": "1234",
             }
             assert client.post("/api/v1/cashier/payments", json=q).status_code == 403
 
