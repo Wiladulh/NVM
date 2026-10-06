@@ -27,5 +27,9 @@ def test_cashier_pin_payment_debits_and_returns_balance():
                 "amount":10000,"method":"NFC","pin":"1234","idempotency_key":"ok"})
             assert ok.status_code == 200
             assert ok.json()["balance"] == 40000
+            low = client.post("/api/v1/cashier/payments", json={
+                "device_id":"cashier-01","credential_id":"cred1","account_id":"a1",
+                "amount":40001,"method":"NFC","pin":"1234","idempotency_key":"too-much"})
+            assert low.status_code == 409 and low.json()["detail"] == "insufficient_balance"
         finally:
             main.get_settings = old
