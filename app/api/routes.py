@@ -109,6 +109,13 @@ def build_router(db):
             c.commit()
         return result
 
+    @r.get("/credentials/{credential_id}/account")
+    def credential_account(credential_id):
+        result = identity.account_for_credential(credential_id)
+        if not result["authorized"]:
+            raise HTTPException(404, result["reason"])
+        return result
+
     @r.get("/accounts/{account_id}/balance")
     def account_balance(account_id):
         try:
