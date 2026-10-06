@@ -63,7 +63,7 @@ class VendingService:
         try:
             payment=self.payment.pay(tx["credential_id"],tx["account_id"],tx["amount"],
                 reference=transaction_id,method="NFC",provider="local",
-                idempotency_key="vending-payment:"+transaction_id,device_id=tx["machine_id"])
+                idempotency_key="vending-payment:"+transaction_id)
         except Exception:
             with self.db.connect() as c:
                 c.execute("UPDATE vending_transactions SET status='failed',dispense_status='not_started' WHERE transaction_id=?",(transaction_id,))
