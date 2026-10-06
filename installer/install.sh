@@ -19,6 +19,7 @@ mkdir -p "$DATA"
 chown -R "$SERVICE_USER:$SERVICE_GROUP" "$PREFIX" "$DATA" 2>/dev/null || true
 
 install -m 0755 "$PWD/installer/nvm.initd" /etc/init.d/nvm
+if [ ! -f /etc/conf.d/nvm ]; then install -m 0600 "$PWD/installer/nvm.conf" /etc/conf.d/nvm; fi
 rc-update add nvm default 2>/dev/null || true
 
 echo "NVM installed at $PREFIX"
