@@ -8,7 +8,7 @@ def seed(client):
         c.execute("INSERT INTO identity_members(member_id,name) VALUES('m1','Member')")
         c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
         c.execute("INSERT INTO financial_ledger(account_id,direction,amount,reference) VALUES('a1','credit',10000,'seed')")
-        c.execute("INSERT INTO vending_machines(machine_id,name) VALUES('v1','Vending 1')")
+        c.execute("INSERT INTO vending_machines(machine_id,name,status) VALUES('v1','Vending 1','active')")
         c.execute("INSERT INTO vending_products(product_id,machine_id,name,price,stock) VALUES('water','v1','Water',5000,1)")
         c.execute("INSERT INTO credential_registry(credential_id,credential_type,member_id,status,enabled) VALUES('nfc1','nfc','m1','active',1)")
         c.commit()
@@ -59,7 +59,6 @@ def test_vending_api_failed_dispense_refunds():
             assert client.get("/api/v1/vending/v1/products").json()["products"][0]["stock"] == 1
         finally:
             main.get_settings = old
-
 
 def test_vending_credential_resolves_primary_savings_account():
     with TemporaryDirectory() as d:

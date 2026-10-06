@@ -7,7 +7,7 @@ def seed(db):
     with db.connect() as c:
         c.execute("INSERT INTO identity_members(member_id,name) VALUES('vm-member','Vending Test')")
         c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('vm-acct','vm-member','savings')")
-        c.execute("INSERT INTO vending_machines(machine_id,name) VALUES('vm-01','Test Vending')")
+        c.execute("INSERT INTO vending_machines(machine_id,name,status) VALUES('vm-01','Test Vending','active')")
         c.execute("INSERT INTO vending_products(product_id,machine_id,name,price,stock) VALUES('water','vm-01','Water',5000,2)")
         c.execute("INSERT INTO credential_registry(credential_id,credential_type,member_id,status,enabled) VALUES('vm-nfc','nfc','vm-member','active',1)")
         c.commit()
@@ -40,7 +40,6 @@ def test_vending_rejects_empty_and_failed_dispense():
         assert failed["dispense_status"]=="failed"
         assert f.products("vm-01")[0]["stock"]==2
 
-    
 def test_vending_failed_dispense_refunds_payment():
     with TemporaryDirectory() as d:
         db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
