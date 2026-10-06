@@ -1,35 +1,29 @@
-# NVM ESP32 Cashier — RC522 / PN532 Auto Detect
+# NVM ESP32 Cashier — NFC + PIN + LCD + Keypad
 
-Cashier supports both RC522 and PN532. On startup it probes PN532 first, then falls back to RC522 automatically.
+Minimum cashier flow:
+1. Petugas memasukkan nominal dengan keypad 4x4 (# konfirmasi, * hapus).
+2. Pembeli menempelkan kartu NFC.
+3. ESP32 mencari rekening aktif milik credential tersebut.
+4. Pembeli memasukkan PIN 4–6 digit; LCD menampilkan *.
+5. ESP32 mengirim nominal + credential + PIN ke server NVM.
+6. Server memverifikasi credential dan PIN lalu melakukan debit pada Financial Core.
+7. LCD menampilkan SUKSES, saldo terpotong, dan saldo sisa. Saldo kurang/PIN salah ditolak.
 
-## Libraries
+## Hardware
+- ESP32
+- LCD 16x2 I2C, address default 0x27
+- Keypad matrix 4x4
+- PN532 I2C atau RC522 SPI
 
-Install from Arduino Library Manager:
-- Adafruit PN532
-- MFRC522
+## Wiring
+LCD: SDA 21, SCL 22.
+Keypad rows: 32,33,25,26. Columns: 13,14,16,17.
+PN532: SDA 21, SCL 22, IRQ 4, RESET 5.
+RC522: SCK 18, MISO 19, MOSI 23, SS 27, RST 26.
 
-## Default reader wiring
+Libraries: LiquidCrystal_I2C, Keypad, Adafruit PN532, MFRC522.
 
-PN532 I2C:
-- SDA GPIO 21
-- SCL GPIO 22
-- IRQ GPIO 4
-- RESET GPIO 5
-
-RC522 SPI:
-- SCK GPIO 18
-- MISO GPIO 19
-- MOSI GPIO 23
-- SS GPIO 27
-- RST GPIO 26
-
-Change constants in NvmCashier.ino for the actual wiring.
-
-The UID is converted to nfc-<lowercase hexadecimal UID>, so the same physical card produces the same NVM credential_id regardless of reader type.
-
-Serial:
-SET <account_id> <amount>
-Then tap the card.
-
-Manual:
-PAY <credential_id> <account_id> <amount> <sequence>
+## Server
+Set WIFI_SSID, WIFI_PASSWORD, and NVM_BASE_URL.
+Set PIN member melalui POST /api/v1/members/<member_id>/pin dengan body {"pin":"1234"}.
+Credential NFC harus aktif, terhubung ke member aktif, dan member harus mempunyai rekening savings aktif.
