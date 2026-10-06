@@ -22,14 +22,14 @@ def test_cashier_heartbeat_and_nfc_payment():
             p = client.post("/api/v1/cashier/payments", json={
                 "device_id":"cashier-01","credential_id":"cred1","account_id":"a1",
                 "amount":10000,"method":"NFC","provider":"local",
-                "idempotency_key":"cashier-01:1","pin":"1234"
+                "idempotency_key":"cashier-01:1","pin":"1234","pin":"1234"
             })
             assert p.status_code == 200
             assert p.json()["device_id"] == "cashier-01"
             again = client.post("/api/v1/cashier/payments", json={
                 "device_id":"cashier-01","credential_id":"cred1","account_id":"a1",
                 "amount":10000,"method":"NFC","provider":"local",
-                "idempotency_key":"cashier-01:1"
+                "idempotency_key":"cashier-01:1","pin":"1234"
             })
             assert again.status_code == 200
             assert again.json()["transaction_id"] == p.json()["transaction_id"]
