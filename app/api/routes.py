@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from app.identity.service import IdentityService
 from app.payment.service import PaymentService
 from app.financial.service import FinancialService
+from app.vending.service import VendingService
 
 class PaymentRequest(BaseModel):
     credential_id: str
@@ -23,11 +24,28 @@ class FinancialRequest(BaseModel):
     reference: str | None = None
     idempotency_key: str | None = None
 
+class VendingProductRequest(BaseModel):
+    product_id: str
+    name: str
+    price: int
+    stock: int
+    enabled: bool = True
+
+class VendingBeginRequest(BaseModel):
+    product_id: str
+    credential_id: str
+    account_id: str
+    idempotency_key: str
+
+class VendingDispenseRequest(BaseModel):
+    success: bool = True
+
 def build_router(db):
     r = APIRouter(prefix="/api/v1")
     identity = IdentityService(db)
     payments = PaymentService(db)
     financial = FinancialService(db)
+    vending = VendingService(db)
 
     @r.get("/health")
     def health():
@@ -117,6 +135,33 @@ def build_router(db):
         except ValueError as e:
             code = str(e)
             raise HTTPException(409 if code == "insufficient_balance" else 400, code)
+
+    @r.get("/vending/{machine_id}/products")
+    def vending_products(machine_id):
+        try: return {"machine": vending.machine(machine_id), "products": vending.products(machine_id)}
+        except ValueError as e: raise HTTPException(404, str(e))
+
+    @r.put("/vending/{machine_id}/products/{product_id}")
+    def vending_product(machine_id, product_id, q: VendingProductRequest):
+        if q.product_id != product_id: raise HTTPException(400, "product_id_mismatch")
+        try: return vending.upsert_product(machine_id, product_id, q.name, q.price, q.stock, q.enabled)
+        except ValueError as e: raise HTTPException(400, str(e))
+
+    @r.post("/vending/{machine_id}/transactions")
+    def vending_begin(machine_id, q: VendingBeginRequest):
+        try: return vending.begin(machine_id,q.product_id,q.credential_id,q.account_id,q.idempotency_key)
+        except ValueError as e: raise HTTPException(409 if str(e)=="out_of_stock" else 400, str(e))
+
+    @r.post("/vending/transactions/{transaction_id}/authorize")
+    def vending_authorize(transaction_id):
+        try: return vending.authorize(transaction_id)
+        except PermissionError as e: raise HTTPException(403,str(e))
+        except ValueError as e: raise HTTPException(400,str(e))
+
+    @r.post("/vending/transactions/{transaction_id}/dispense")
+    def vending_dispense(transaction_id,q: VendingDispenseRequest):
+        try: return vending.dispense(transaction_id,q.success)
+        except ValueError as e: raise HTTPException(409,str(e))
 
     @r.post("/payments")
     def payment(q: PaymentRequest):
