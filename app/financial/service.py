@@ -96,5 +96,51 @@ class FinancialService:
     def credit(self, account_id, amount, reference=None, idempotency_key=None):
         return self._post(account_id, amount, "credit", reference, idempotency_key)
 
+    def debit_on_connection(self, c, account_id, amount, reference=None, idempotency_key=None):
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+            raise ValueError("amount_must_be_positive_integer")
+        if idempotency_key:
+            row = c.execute(
+                "SELECT transaction_id,status,amount,transaction_type,reference "
+                "FROM financial_transactions WHERE idempotency_key=?",
+                (idempotency_key,),
+            ).fetchone()
+            if row:
+                return dict(row)
+
+        account = self._account(c, account_id)
+        balance = c.execute(
+            "SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) "
+            "FROM financial_ledger WHERE account_id=?",
+            (account_id,),
+        ).fetchone()[0]
+        if balance < amount:
+            raise ValueError("insufficient_balance")
+
+        transaction_id = "fin-" + uuid4().hex
+        c.execute(
+            "INSERT INTO financial_transactions "
+            "(transaction_id,account_id,transaction_type,amount,reference,idempotency_key,status) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (transaction_id, account_id, "debit", amount, reference, idempotency_key, "completed"),
+        )
+        c.execute(
+            "INSERT INTO financial_ledger(account_id,direction,amount,reference) VALUES(?,?,?,?)",
+            (account_id, "debit", amount, transaction_id),
+        )
+        c.execute(
+            "INSERT INTO audit_events(event_type,entity_type,entity_id,detail) VALUES(?,?,?,?)",
+            ("financial", "financial_transaction", transaction_id,
+             f"debit:{amount}:account={account['account_id']}"),
+        )
+        return {
+            "transaction_id": transaction_id,
+            "account_id": account_id,
+            "transaction_type": "debit",
+            "amount": amount,
+            "reference": reference,
+            "status": "completed",
+        }
+
     def debit(self, account_id, amount, reference=None, idempotency_key=None):
         return self._post(account_id, amount, "debit", reference, idempotency_key)
