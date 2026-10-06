@@ -1,14 +1,33 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
+
 import app.main as main
+from app.core.db import Database
+
 
 def test_cashier_payment_requires_active_registered_device():
     with TemporaryDirectory() as d:
         old = main.get_settings
-        main.get_settings = lambda: type("S", (), {"db_path": Path(d) / "nvm.db"})()
+        db_path = Path(d) / "nvm.db"
+        main.get_settings = lambda: type("S", (), {"db_path": db_path})()
         try:
             client = TestClient(main.create_app())
+            with Database(db_path).connect() as c:
+                c.execute("INSERT INTO identity_members(member_id,name) VALUES('member-1','Test')")
+                c.execute(
+                    "INSERT INTO identity_credentials(credential_id,member_id,credential_type) "
+                    "VALUES('test-credential-01','member-1','nfc')"
+                )
+                c.execute(
+                    "INSERT INTO financial_accounts(account_id,member_id,account_type) "
+                    "VALUES('member-account-01','member-1','savings')"
+                )
+                c.execute(
+                    "INSERT INTO financial_ledger(account_id,direction,amount,reference) "
+                    "VALUES('member-account-01','credit',10000,'seed')"
+                )
+
             q = {
                 "device_id": "cashier-01",
                 "credential_id": "test-credential-01",
@@ -25,6 +44,10 @@ def test_cashier_payment_requires_active_registered_device():
                 json={"device_type": "esp32-cashier", "status": "active"},
             )
             assert hb.status_code == 200
-            assert client.post("/api/v1/cashier/payments", json=q).status_code != 403
+
+            payment = client.post("/api/v1/cashier/payments", json=q)
+            assert payment.status_code == 200
+            assert payment.json()["status"] == "completed"
+            assert payment.json()["device_id"] == "cashier-01"
         finally:
             main.get_settings = old
