@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NVM Demo Dashboard</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px system-ui,-apple-system,Segoe UI,sans-serif;background:#f3f6fa;color:#172033}
+header{background:#111827;color:#fff;padding:22px 18px}header h1{margin:0;font-size:22px}header p{margin:5px 0 0;color:#aeb8c8}
+.wrap{max-width:1100px;margin:auto;padding:16px}.nav{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.nav a{white-space:nowrap;background:#fff;padding:9px 13px;border-radius:9px;color:#334155;text-decoration:none;border:1px solid #e2e8f0}
+.status{display:inline-block;margin-top:12px;background:#14532d;color:#bbf7d0;padding:5px 10px;border-radius:99px;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:15px;box-shadow:0 2px 8px #00000008}.num{font-size:24px;font-weight:700;margin-top:5px}.muted{color:#64748b;font-size:12px}
+section{margin-top:16px}h2{font-size:17px;margin:0 0 10px}.table{overflow:auto}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}th,td{text-align:left;padding:11px;border-bottom:1px solid #edf1f5;white-space:nowrap}th{background:#f8fafc;font-size:12px;color:#64748b}tr:last-child td{border-bottom:0}.pill{padding:4px 8px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px}
+@media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}.num{font-size:20px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>NVM — Natura Vending Machine</h1><p>Dashboard Koperasi • Demo WebUI</p><span class="status">● Demo Online</span></div></header>
+<main class="wrap">
+<nav class="nav"><a href="#ringkasan">Ringkasan</a><a href="#rekening">Rekening</a><a href="#anggota">Anggota</a><a href="#pembayaran">Pembayaran</a><a href="#pinjaman">Pinjaman</a><a href="#vending">Vending</a><a href="#perangkat">Perangkat</a></nav>
+<section id="ringkasan"><div class="grid">
+<div class="card"><div class="muted">Anggota</div><div class="num">24</div></div>
+<div class="card"><div class="muted">Rekening Aktif</div><div class="num">24</div></div>
+<div class="card"><div class="muted">Pembayaran</div><div class="num">138</div></div>
+<div class="card"><div class="muted">Pinjaman Aktif</div><div class="num">7</div></div>
+</div></section>
+<section id="rekening"><h2>Saldo / Rekening</h2><div class="table"><table><tr><th>Rekening</th><th>Anggota</th><th>Jenis</th><th>Saldo</th></tr>
+<tr><td>member-account-01</td><td>Ahmad</td><td>Savings</td><td>Rp 850.000</td></tr><tr><td>member-account-02</td><td>Siti</td><td>Savings</td><td>Rp 1.250.000</td></tr><tr><td>member-account-03</td><td>Budi</td><td>Savings</td><td>Rp 425.000</td></tr></table></div></section>
+<section id="anggota"><h2>Anggota</h2><div class="table"><table><tr><th>ID</th><th>Nama</th><th>Status</th></tr><tr><td>NVM-MEMBER-01</td><td>Ahmad</td><td><span class="pill">active</span></td></tr><tr><td>NVM-MEMBER-02</td><td>Siti</td><td><span class="pill">active</span></td></tr><tr><td>NVM-MEMBER-03</td><td>Budi</td><td><span class="pill">active</span></td></tr></table></div></section>
+<section id="pembayaran"><h2>Pembayaran Terbaru</h2><div class="table"><table><tr><th>Transaksi</th><th>Metode</th><th>Jumlah</th><th>Status</th></tr><tr><td>pay-demo-001</td><td>NFC</td><td>Rp 15.000</td><td><span class="pill">completed</span></td></tr><tr><td>pay-demo-002</td><td>QRIS</td><td>Rp 25.000</td><td><span class="pill">completed</span></td></tr><tr><td>pay-demo-003</td><td>CASH</td><td>Rp 10.000</td><td><span class="pill">completed</span></td></tr></table></div></section>
+<section id="pinjaman"><h2>Pinjaman</h2><div class="grid"><div class="card"><div class="muted">test-loan-01</div><div class="num">Rp 800.000</div><div class="muted">Sisa pinjaman • aktif</div></div><div class="card"><div class="muted">Angsuran</div><div class="num">Rp 100.000</div><div class="muted">per pembayaran</div></div></div></section>
+<section id="vending"><h2>Vending Machine</h2><div class="grid"><div class="card"><b>vm-01</b><p class="muted">Online • 12 produk</p></div><div class="card"><b>vm-02</b><p class="muted">Online • 9 produk</p></div></div></section>
+<section id="perangkat"><h2>Perangkat</h2><div class="table"><table><tr><th>Device</th><th>Tipe</th><th>Status</th></tr><tr><td>cashier-01</td><td>Cashier NFC</td><td><span class="pill">active</span></td></tr><tr><td>vm-01</td><td>Vending</td><td><span class="pill">active</span></td></tr><tr><td>vm-02</td><td>Vending</td><td><span class="pill">active</span></td></tr></table></div></section>
+</main>
+</body></html>
