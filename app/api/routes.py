@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+import hashlib
+import secrets
 from app.identity.service import IdentityService
 from app.payment.service import PaymentService
 from app.financial.service import FinancialService
@@ -25,6 +27,9 @@ class PinRequest(BaseModel):
 class DeviceHeartbeatRequest(BaseModel):
     device_type: str
     status: str = "active"
+
+class DeviceProvisionRequest(BaseModel):
+    device_type: str
 
 class FinancialRequest(BaseModel):
     amount: int
@@ -57,7 +62,7 @@ class VendingProductRequest(BaseModel):
 class VendingBeginRequest(BaseModel):
     product_id: str
     credential_id: str
-    account_id: str
+    account_id: str | None = None
     idempotency_key: str
     payment_method: str = "NFC"
     payment_provider: str = "local"
@@ -67,10 +72,26 @@ class VendingDispenseRequest(BaseModel):
 
 def build_router(db):
     r = APIRouter(prefix="/api/v1")
+    app_settings = __import__("app.core.config",fromlist=["get_settings"]).get_settings()
     identity = IdentityService(db)
     payments = PaymentService(db)
     financial = FinancialService(db)
     vending = VendingService(db)
+
+    def require_device(device_id: str, device_key: str | None):
+        if not device_key:
+            raise HTTPException(401,"device_auth_required")
+        with db.connect() as c:
+            row=c.execute("SELECT status,auth_key_hash FROM device_registry WHERE device_id=?",(device_id,)).fetchone()
+        if not row or row["status"]!="active":
+            raise HTTPException(403,"device_not_active")
+        if not row["auth_key_hash"]:
+            raise HTTPException(403,"device_not_provisioned")
+        got=hashlib.sha256(device_key.encode("utf-8")).hexdigest()
+        if not secrets.compare_digest(got,row["auth_key_hash"]):
+            raise HTTPException(403,"invalid_device_key")
+        return True
+
 
     @r.get("/health")
     def health(): return {"status": "ok", "service": "nvm"}
@@ -117,14 +138,31 @@ def build_router(db):
         try:return identity.set_pin(member_id,q.pin)
         except ValueError as e:raise HTTPException(400,str(e))
 
+    @r.post("/devices/{device_id}/provision")
+    def device_provision(device_id,q:DeviceProvisionRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        if not getattr(app_settings,"admin_token","") or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,getattr(app_settings,"admin_token","")):
+            raise HTTPException(401,"admin_auth_required")
+        if not device_id.strip() or not q.device_type.strip():
+            raise HTTPException(400,"device_id_and_type_required")
+        key=secrets.token_urlsafe(32)
+        digest=hashlib.sha256(key.encode("utf-8")).hexdigest()
+        with db.connect() as c:
+            c.execute("""INSERT INTO device_registry(device_id,device_type,status,last_seen,auth_key_hash,auth_key_hint)
+                         VALUES(?,?, 'active',NULL,?,?)
+                         ON CONFLICT(device_id) DO UPDATE SET device_type=excluded.device_type,
+                         status='active',auth_key_hash=excluded.auth_key_hash,auth_key_hint=excluded.auth_key_hint""",
+                      (device_id,q.device_type,digest,key[-6:]))
+            c.commit()
+        return {"device_id":device_id,"device_type":q.device_type,"device_key":key}
+
     @r.post("/devices/{device_id}/heartbeat")
-    def device_heartbeat(device_id,q:DeviceHeartbeatRequest):
+    def device_heartbeat(device_id,q:DeviceHeartbeatRequest,x_nvm_device_key: str | None = Header(default=None)):
         if not device_id.strip(): raise HTTPException(400,"device_id_required")
         if not q.device_type.strip(): raise HTTPException(400,"device_type_required")
+        require_device(device_id,x_nvm_device_key)
         with db.connect() as c:
-            c.execute("""INSERT INTO device_registry(device_id,device_type,status,last_seen)
-                   VALUES(?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(device_id) DO UPDATE SET device_type=excluded.device_type,
-                   status=excluded.status,last_seen=CURRENT_TIMESTAMP""",(device_id,q.device_type,q.status))
+            c.execute("""UPDATE device_registry SET device_type=?,status=?,last_seen=CURRENT_TIMESTAMP WHERE device_id=?""",
+                      (q.device_type,q.status,device_id))
             c.execute("INSERT INTO device_events(device_id,event_type,payload) VALUES(?,?,?)",(device_id,"heartbeat",q.model_dump_json()))
             c.commit()
         return {"device_id":device_id,"device_type":q.device_type,"status":q.status}
@@ -207,19 +245,33 @@ def build_router(db):
         except ValueError as e:raise HTTPException(409 if "slot" in str(e) or str(e)=="no_free_slot" else 400,str(e))
 
     @r.post("/vending/{machine_id}/transactions")
-    def vending_begin(machine_id,q:VendingBeginRequest):
-        try:return vending.begin(machine_id,q.product_id,q.credential_id,q.account_id,q.idempotency_key,q.payment_method,q.payment_provider)
+    def vending_begin(machine_id,q:VendingBeginRequest,x_nvm_device_key: str | None = Header(default=None)):
+        try:
+            machine=vending.machine(machine_id)
+            if not machine.get("device_id"): raise HTTPException(403,"machine_device_not_configured")
+            require_device(machine["device_id"],x_nvm_device_key)
+            return vending.begin(machine_id,q.product_id,q.credential_id,q.account_id,q.idempotency_key,q.payment_method,q.payment_provider)
         except ValueError as e:raise HTTPException(409 if str(e) in {"out_of_stock","machine_not_active","qris_payment_provider_not_activated"} else 400,str(e))
 
     @r.post("/vending/transactions/{transaction_id}/authorize")
-    def vending_authorize(transaction_id):
-        try:return vending.authorize(transaction_id)
+    def vending_authorize(transaction_id,x_nvm_device_key: str | None = Header(default=None)):
+        try:
+            tx=vending.get(transaction_id)
+            machine=vending.machine(tx["machine_id"])
+            if not machine.get("device_id"): raise HTTPException(403,"machine_device_not_configured")
+            require_device(machine["device_id"],x_nvm_device_key)
+            return vending.authorize(transaction_id)
         except PermissionError as e:raise HTTPException(403,str(e))
         except ValueError as e:raise HTTPException(400,str(e))
 
     @r.post("/vending/transactions/{transaction_id}/dispense")
-    def vending_dispense(transaction_id,q:VendingDispenseRequest):
-        try:return vending.dispense(transaction_id,q.success)
+    def vending_dispense(transaction_id,q:VendingDispenseRequest,x_nvm_device_key: str | None = Header(default=None)):
+        try:
+            tx=vending.get(transaction_id)
+            machine=vending.machine(tx["machine_id"])
+            if not machine.get("device_id"): raise HTTPException(403,"machine_device_not_configured")
+            require_device(machine["device_id"],x_nvm_device_key)
+            return vending.dispense(transaction_id,q.success)
         except ValueError as e:raise HTTPException(409,str(e))
 
     @r.post("/payments")
@@ -231,12 +283,10 @@ def build_router(db):
             raise HTTPException(409 if code in {"insufficient_balance", "idempotency_key_conflict"} else 400,code)
 
     @r.post("/cashier/payments")
-    def cashier_payment(q:PaymentRequest):
+    def cashier_payment(q:PaymentRequest,x_nvm_device_key: str | None = Header(default=None)):
         if q.device_id is None:raise HTTPException(400,"device_id_required")
         try:
-            with db.connect() as c:
-                device=c.execute("SELECT device_id,status FROM device_registry WHERE device_id=?",(q.device_id,)).fetchone()
-            if not device or device["status"]!="active":raise HTTPException(403,"device_not_active")
+            require_device(q.device_id,x_nvm_device_key)
             if q.method!="NFC":raise HTTPException(400,"cashier_requires_nfc")
             if q.provider!="local":raise HTTPException(400,"invalid_nfc_provider")
             return payments.pay(**q.model_dump())

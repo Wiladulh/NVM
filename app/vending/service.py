@@ -139,6 +139,13 @@ class VendingService:
 
     def begin(self,machine_id,product_id,credential_id,account_id,idempotency_key,payment_method="NFC",payment_provider="local"):
         machine=self.machine(machine_id)
+        resolved=self.payment.identity.account_for_credential(credential_id)
+        if not resolved["authorized"]:
+            raise ValueError(resolved["reason"])
+        resolved_account=resolved["account_id"]
+        if account_id and account_id != resolved_account:
+            raise ValueError("credential_account_mismatch")
+        account_id=resolved_account
         if machine["status"]!="active": raise ValueError("machine_not_active")
         if not idempotency_key: raise ValueError("idempotency_key_required")
         if payment_method not in {"NFC","QRIS"}: raise ValueError("unsupported_vending_payment_method")
@@ -168,7 +175,7 @@ class VendingService:
         try:
             if tx["payment_method"]=="QRIS":
                 raise ValueError("qris_payment_provider_not_activated")
-            payment=self.payment.pay(tx["credential_id"],tx["account_id"],tx["amount"],
+            payment=self.payment.pay(tx["credential_id"],None,tx["amount"],
                 reference=transaction_id,method=tx["payment_method"],provider=tx["payment_provider"],
                 idempotency_key="vending-payment:"+transaction_id)
         except Exception:

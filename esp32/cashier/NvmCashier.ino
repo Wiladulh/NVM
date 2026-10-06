@@ -10,6 +10,7 @@ const char* WIFI_SSID="CHANGE_ME";
 const char* WIFI_PASSWORD="CHANGE_ME";
 const char* NVM_BASE_URL="http://192.168.1.24:8080";
 const char* DEVICE_ID="cashier-01";
+const char* NVM_DEVICE_KEY="CHANGE_DEVICE_KEY";
 LiquidCrystal_I2C lcd(0x27,16,2);
 
 #define PN532_SDA 21
@@ -29,7 +30,8 @@ long paymentAmount=0;
 
 String postJson(const String& path,const String& body,int& code){
   HTTPClient http; http.begin(String(NVM_BASE_URL)+path);
-  http.addHeader("Content-Type","application/json"); code=http.POST(body);
+  http.addHeader("Content-Type","application/json");
+  http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY); code=http.POST(body);
   String out=code>0?http.getString():""; http.end(); return out;
 }
 

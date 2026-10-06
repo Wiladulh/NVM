@@ -11,6 +11,7 @@ const char* WIFI_SSID="CHANGE_ME";
 const char* WIFI_PASSWORD="CHANGE_ME";
 const char* NVM_BASE_URL="http://192.168.1.24:8080";
 const char* DEVICE_ID="vm-01";
+const char* NVM_DEVICE_KEY="CHANGE_DEVICE_KEY";
 
 #define I2C_SDA 8
 #define I2C_SCL 9
@@ -24,21 +25,22 @@ const char* DEVICE_ID="vm-01";
 #define BUTTON_UP 4
 #define BUTTON_DOWN 5
 #define BUTTON_SELECT 6
-#define SERVO_PIN 3
+#define SERVO_COUNT 5
+const int SERVO_PINS[SERVO_COUNT]={3,16,17,18,21};
 #define OLED_ADDR 0x3C
 
 NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_SS,RC522_RST);
 Adafruit_SSD1306 display(128,64,&Wire,-1);
-Servo dispenser;
+Servo dispensers[SERVO_COUNT];
 unsigned long lastHeartbeat=0;
 bool readerReady=false,displayReady=false;
 int selectedIndex=0,productCount=0;
 
-struct Product{String id,name;long price;int stock;bool enabled;};
+struct Product{String id,name;long price;int stock;bool enabled;int servo_channel;};
 Product productsList[16];
 
 String request(const String& method,const String& path,const String& body,int& code){
-  HTTPClient http; http.begin(String(NVM_BASE_URL)+path); http.addHeader("Content-Type","application/json");
+  HTTPClient http; http.begin(String(NVM_BASE_URL)+path); http.addHeader("Content-Type","application/json");http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY);
   if(method=="GET")code=http.GET();else if(method=="POST")code=http.POST(body);else code=-1;
   String out=code>0?http.getString():"";http.end();return out;
 }
@@ -72,6 +74,8 @@ void parseProducts(const String&json){
     int q=json.indexOf("\"price\":",e);x.price=q>=0?jsonLong(json.substring(q),"price"):0;
     q=json.indexOf("\"stock\":",e);x.stock=q>=0?jsonLong(json.substring(q),"stock"):0;
     q=json.indexOf("\"enabled\":",e);x.enabled=q>=0&&json.substring(q,q+20).indexOf("true")>=0;
+    q=json.indexOf("\"servo_channel\":",e);x.servo_channel=q>=0?jsonLong(json.substring(q),"servo_channel"):productCount+1;
+    if(x.servo_channel<1||x.servo_channel>SERVO_COUNT)x.servo_channel=productCount+1;
     pos=e+1;productCount++;
   }
 }
@@ -83,12 +87,8 @@ bool products(){
   if(selectedIndex>=productCount)selectedIndex=0;Product&x=productsList[selectedIndex];
   showMessage("SELECT PRODUCT",x.name,"Rp "+String(x.price));return true;
 }
-String resolveAccount(const String&credential){
-  int code=0;String reply=request("GET","/api/v1/credentials/"+credential+"/account","",code);
-  return (code>=200&&code<300)?jsonString(reply,"account_id"):"";
-}
-String beginTransaction(const String&product,const String&credential,const String&account,const String&seq){
-  String body="{\"product_id\":\""+product+"\",\"credential_id\":\""+credential+"\",\"account_id\":\""+account+"\",\"idempotency_key\":\""+String(DEVICE_ID)+":"+seq+"\"}";
+String beginTransaction(const String&product,const String&credential,const String&seq){
+  String body="{\"product_id\":\""+product+"\",\"credential_id\":\""+credential+"\",\"idempotency_key\":\""+String(DEVICE_ID)+":"+seq+"\"}";
   int code=0;String reply=request("POST",String("/api/v1/vending/")+DEVICE_ID+"/transactions",body,code);
   Serial.printf("BEGIN %d %s\n",code,reply.c_str());return jsonString(reply,"transaction_id");
 }
@@ -96,8 +96,10 @@ bool authorize(const String&tx){
   int code=0;String reply=request("POST","/api/v1/vending/transactions/"+tx+"/authorize","",code);
   Serial.printf("AUTHORIZE %d %s\n",code,reply.c_str());return code>=200&&code<300;
 }
-bool dispense(const String&tx){
-  dispenser.write(70);delay(700);dispenser.write(10);
+bool dispense(const String&tx,int servoChannel){
+  if(servoChannel<1||servoChannel>SERVO_COUNT)return false;
+  Servo&servo=dispensers[servoChannel-1];
+  servo.write(70);delay(700);servo.write(10);
   int code=0;String reply=request("POST","/api/v1/vending/transactions/"+tx+"/dispense","{\"success\":true}",code);
   Serial.printf("DISPENSE %d %s\n",code,reply.c_str());return code>=200&&code<300;
 }
@@ -106,18 +108,17 @@ void scanCard(){
   uint8_t uid[7]={0},len=0;if(!card.readUID(uid,len))return;
   String credential="nfc-";for(uint8_t i=0;i<len;i++){if(uid[i]<16)credential+="0";credential+=String(uid[i],HEX);}credential.toLowerCase();
   showMessage("CARD DETECTED",credential,"Checking...");
-  String account=resolveAccount(credential);if(!account.length()){showMessage("CARD REJECTED","No active account");delay(1200);return;}
-  String tx=beginTransaction(x.id,credential,account,String(millis()));
+  String tx=beginTransaction(x.id,credential,String(millis()));
   if(!tx.length()||!authorize(tx)){showMessage("PAYMENT FAILED");delay(1200);return;}
   showMessage("PAYMENT OK",x.name,"Dispensing...");
-  if(dispense(tx)){showMessage("TAKE PRODUCT",x.name);delay(800);products();}else showMessage("DISPENSE ERROR","Payment refunded");
+  if(dispense(tx,x.servo_channel)){showMessage("TAKE PRODUCT",x.name);delay(800);products();}else showMessage("DISPENSE ERROR","Payment refunded");
   delay(1000);
 }
 void setup(){
   Serial.begin(115200);delay(300);
   pinMode(BUTTON_UP,INPUT_PULLUP);pinMode(BUTTON_DOWN,INPUT_PULLUP);pinMode(BUTTON_SELECT,INPUT_PULLUP);
   Wire.begin(I2C_SDA,I2C_SCL);displayReady=display.begin(SSD1306_SWITCHCAPVCC,OLED_ADDR);
-  dispenser.setPeriodHertz(50);dispenser.attach(SERVO_PIN,500,2400);dispenser.write(10);
+  for(int i=0;i<SERVO_COUNT;i++){dispensers[i].setPeriodHertz(50);dispensers[i].attach(SERVO_PINS[i],500,2400);dispensers[i].write(10);}
   showMessage("NVM VENDING","Starting...");connectWifi();heartbeat();readerReady=card.begin(I2C_SDA,I2C_SCL);products();
 }
 void loop(){
