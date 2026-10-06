@@ -55,7 +55,7 @@ def build_router(db):
                    FROM loan_accounts ORDER BY created_at DESC LIMIT 50"""
             ).fetchall()
             machines = c.execute(
-                "SELECT machine_id,name,status,last_seen FROM vending_machines ORDER BY name"
+                "SELECT machine_id,name,status,NULL AS last_seen FROM vending_machines ORDER BY name"
             ).fetchall()
         return {
             "members": [dict(x) for x in members],
