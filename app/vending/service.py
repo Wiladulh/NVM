@@ -97,7 +97,7 @@ class VendingService:
             reference="refund:"+tx["transaction_id"],
             idempotency_key="vending-refund:"+tx["transaction_id"])
         with self.db.connect() as c:
-            c.execute("UPDATE vending_transactions SET status='failed',dispense_status='failed' WHERE transaction_id=?",(tx["transaction_id"],))
+            c.execute("UPDATE vending_transactions SET status='refunded',dispense_status='failed' WHERE transaction_id=?",(tx["transaction_id"],))
             c.commit()
         return self.get(tx["transaction_id"])
 
