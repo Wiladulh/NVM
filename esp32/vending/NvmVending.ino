@@ -34,7 +34,7 @@ unsigned long lastHeartbeat=0;
 bool readerReady=false,displayReady=false;
 int selectedIndex=0,productCount=0;
 
-struct Product{String id,name;long price;int stock;bool enabled;};
+struct Product{String id,name;long price;int stock;bool enabled;int servo_channel;};
 Product productsList[16];
 
 String request(const String& method,const String& path,const String& body,int& code){
@@ -72,6 +72,8 @@ void parseProducts(const String&json){
     int q=json.indexOf("\"price\":",e);x.price=q>=0?jsonLong(json.substring(q),"price"):0;
     q=json.indexOf("\"stock\":",e);x.stock=q>=0?jsonLong(json.substring(q),"stock"):0;
     q=json.indexOf("\"enabled\":",e);x.enabled=q>=0&&json.substring(q,q+20).indexOf("true")>=0;
+    q=json.indexOf("\"servo_channel\":",e);x.servo_channel=q>=0?jsonLong(json.substring(q),"servo_channel"):productCount+1;
+    if(x.servo_channel<1||x.servo_channel>SERVO_COUNT)x.servo_channel=productCount+1;
     pos=e+1;productCount++;
   }
 }
@@ -117,7 +119,7 @@ void setup(){
   Serial.begin(115200);delay(300);
   pinMode(BUTTON_UP,INPUT_PULLUP);pinMode(BUTTON_DOWN,INPUT_PULLUP);pinMode(BUTTON_SELECT,INPUT_PULLUP);
   Wire.begin(I2C_SDA,I2C_SCL);displayReady=display.begin(SSD1306_SWITCHCAPVCC,OLED_ADDR);
-  dispenser.setPeriodHertz(50);dispenser.attach(SERVO_PIN,500,2400);dispenser.write(10);
+  for(int i=0;i<SERVO_COUNT;i++){dispensers[i].setPeriodHertz(50);dispensers[i].attach(SERVO_PINS[i],500,2400);dispensers[i].write(10);}
   showMessage("NVM VENDING","Starting...");connectWifi();heartbeat();readerReady=card.begin(I2C_SDA,I2C_SCL);products();
 }
 void loop(){
