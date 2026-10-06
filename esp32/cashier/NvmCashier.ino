@@ -25,7 +25,6 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_SS,RC522_RST);
 unsigned long lastHeartbeat=0,paymentSequence=0;
 bool readerReady=false;
-String paymentAccount="";
 long paymentAmount=0;
 
 String postJson(const String& path,const String& body,int& code){
@@ -52,10 +51,10 @@ String uidToCredential(const uint8_t* uid,uint8_t len){
   out.toLowerCase(); return out;
 }
 
-void cashierPayment(const String& credential,const String& account,long amount,const String& seq,const String& pin){
-  if(amount<=0||account.length()==0){Serial.println("ERR set account and positive amount first");return;}
+void cashierPayment(const String& credential,long amount,const String& seq,const String& pin){
+  if(amount<=0){Serial.println("ERR nominal must be positive");return;}
   String body="{\"device_id\":\""+String(DEVICE_ID)+"\",\"credential_id\":\""+credential+
-              "\",\"account_id\":\""+account+"\",\"amount\":"+String(amount)+
+              "\",\"amount\":"+String(amount)+
               ",\"method\":\"NFC\",\"provider\":\"local\",\"idempotency_key\":\""+
               String(DEVICE_ID)+":"+seq+"\",\"pin\":\""+pin+"\"}";
   int code=0; String reply=postJson("/api/v1/cashier/payments",body,code);
@@ -72,33 +71,15 @@ void cashierPayment(const String& credential,const String& account,long amount,c
   else {lcdShow("GAGAL","Server "+String(code));delay(1800);}
 }
 
-String findAccount(const String& credential){
-  HTTPClient http;
-  http.begin(String(NVM_BASE_URL)+"/api/v1/credentials/"+credential+"/account");
-  http.setTimeout(8000);
-  int code=http.GET();
-  String out=code>0?http.getString():"";
-  http.end();
-  if(code!=200)return "";
-  String key="\"account_id\":\"";
-  int p=out.indexOf(key);
-  if(p<0)return "";
-  p+=key.length();
-  int e=out.indexOf("\"",p);
-  return e>p?out.substring(p,e):"";
-}
-
 void scanCard(){
   if(!readerReady||paymentAmount<=0)return;
   uint8_t uid[7]={0},len=0;
   if(!card.readUID(uid,len))return;
   String credential=uidToCredential(uid,len); ++paymentSequence;
-  paymentAccount=findAccount(credential);
-  if(paymentAccount==""){lcdShow("KARTU DITOLAK","Akun tidak ada");delay(1800);return;}
   lcdShow("Kartu diterima","PIN:");
   String pin=readKeyDigits("PIN:",true);
-  Serial.printf("CARD %s -> %s amount=%ld account=%s\n",card.name(),credential.c_str(),paymentAmount,paymentAccount.c_str());
-  cashierPayment(credential,paymentAccount,paymentAmount,String(paymentSequence),pin);
+  Serial.printf("CARD %s -> %s amount=%ld\n",card.name(),credential.c_str(),paymentAmount);
+  cashierPayment(credential,paymentAmount,String(paymentSequence),pin);
   delay(700);
 }
 
