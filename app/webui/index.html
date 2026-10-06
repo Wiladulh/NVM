@@ -27,7 +27,7 @@ button{padding:9px 14px;border:0;border-radius:7px;cursor:pointer}input,select{p
 <section><h2>Anggota</h2><div id="members"></div></section>
 <section><h2>Transaksi Pembayaran</h2><div id="payments"></div></section>
 <section><h2>Pinjaman</h2><div id="loans"></div></section>
-<section><h2>Vending</h2><div id="machines"></div></section>
+<section><h2>Vending / Machine</h2><div id="machines"></div></section><section><h2>Inventory Produk</h2><div id="products"></div></section>
 </main>
 <script>
 const money=n=>new Intl.NumberFormat('id-ID').format(n);
@@ -42,6 +42,7 @@ async function load(){
  document.getElementById('payments').innerHTML=table(d.payments,['transaction_id','account_id','amount','method','provider','status','created_at']);
  document.getElementById('loans').innerHTML=table(d.loans,['loan_id','member_id','principal','installment_amount','remaining_balance','status']);
  document.getElementById('machines').innerHTML=table(d.machines,['machine_id','name','status','last_seen']);
+ document.getElementById('products').innerHTML=table(d.products.map(x=>({...x,price:money(x.price),enabled:x.enabled?'yes':'no'})),['product_id','machine_id','name','price','stock','enabled']);
 }
 document.getElementById('financialForm').onsubmit=async e=>{e.preventDefault();const q={amount:+amount.value,reference:reference.value||null,idempotency_key:null};const r=await fetch('/api/v1/accounts/'+encodeURIComponent(account.value)+'/'+direction.value,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});financialResult.textContent=JSON.stringify(await r.json());if(r.ok)load()};
 document.getElementById('paymentForm').onsubmit=async e=>{e.preventDefault();const q={credential_id:credential.value,account_id:payaccount.value,amount:+payamount.value,method:method.value,provider:provider.value||'local',idempotency_key:idem.value||null};const r=await fetch('/api/v1/payments',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});paymentResult.textContent=JSON.stringify(await r.json());if(r.ok)load()};
