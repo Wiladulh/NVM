@@ -109,16 +109,5 @@ void setup(){
 void loop(){
   if(WiFi.status()!=WL_CONNECTED)connectWifi();
   if(millis()-lastHeartbeat>=30000UL){lastHeartbeat=millis();heartbeat();}
-  if(Serial.available()){
-    String line=Serial.readStringUntil('\n'); line.trim();
-    if(line.startsWith("SET ")){
-      int p=line.indexOf(' ',4);
-      if(p>4){paymentAccount=line.substring(4,p);paymentAmount=line.substring(p+1).toInt();
-        Serial.printf("READY account=%s amount=%ld\n",paymentAccount.c_str(),paymentAmount);}
-    }else if(line.startsWith("PAY ")){
-      int p1=line.indexOf(' ',4),p2=line.indexOf(' ',p1+1),p3=line.indexOf(' ',p2+1);
-      if(p1>0&&p2>p1&&p3>p2)cashierPayment(line.substring(4,p1),line.substring(p1+1,p2),line.substring(p2+1,p3).toInt(),line.substring(p3+1));
-    }
-  }
   if(paymentAmount<=0) paymentAmount=readCashierAmount();\n  if(paymentAmount>0) scanCard();\n  paymentAmount=0;
 }
