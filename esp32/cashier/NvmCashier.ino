@@ -52,12 +52,12 @@ String uidToCredential(const uint8_t* uid,uint8_t len){
   out.toLowerCase(); return out;
 }
 
-void cashierPayment(const String& credential,const String& account,long amount,const String& seq){
+void cashierPayment(const String& credential,const String& account,long amount,const String& seq,const String& pin){
   if(amount<=0||account.length()==0){Serial.println("ERR set account and positive amount first");return;}
   String body="{\"device_id\":\""+String(DEVICE_ID)+"\",\"credential_id\":\""+credential+
               "\",\"account_id\":\""+account+"\",\"amount\":"+String(amount)+
               ",\"method\":\"NFC\",\"provider\":\"local\",\"idempotency_key\":\""+
-              String(DEVICE_ID)+":"+seq+"\"}";
+              String(DEVICE_ID)+":"+seq+"\",\"pin\":\""+pin+"\"}";
   int code=0; String reply=postJson("/api/v1/cashier/payments",body,code);
   Serial.printf("PAYMENT %d %s\n",code,reply.c_str());
 }
@@ -118,5 +118,5 @@ void loop(){
       if(p1>0&&p2>p1&&p3>p2)cashierPayment(line.substring(4,p1),line.substring(p1+1,p2),line.substring(p2+1,p3).toInt(),line.substring(p3+1));
     }
   }
-  scanCard();
+  if(paymentAmount<=0) paymentAmount=readCashierAmount();\n  if(paymentAmount>0) scanCard();\n  paymentAmount=0;
 }
