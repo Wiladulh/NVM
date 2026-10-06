@@ -59,3 +59,18 @@ def test_vending_api_failed_dispense_refunds():
             assert client.get("/api/v1/vending/v1/products").json()["products"][0]["stock"] == 1
         finally:
             main.get_settings = old
+
+
+def test_vending_credential_resolves_primary_savings_account():
+    with TemporaryDirectory() as d:
+        old = main.get_settings
+        main.get_settings = lambda: type("S", (), {"db_path": Path(d) / "nvm.db"})()
+        try:
+            client = TestClient(main.create_app())
+            seed(client)
+            result = client.get("/api/v1/credentials/nfc1/account")
+            assert result.status_code == 200
+            assert result.json()["account_id"] == "a1"
+            assert result.json()["member_id"] == "m1"
+        finally:
+            main.get_settings = old
