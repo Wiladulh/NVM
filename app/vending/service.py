@@ -137,10 +137,13 @@ class VendingService:
         if not r: raise ValueError("product_not_found")
         return dict(r)
 
-    def begin(self,machine_id,product_id,credential_id,account_id,idempotency_key):
+    def begin(self,machine_id,product_id,credential_id,account_id,idempotency_key,payment_method="NFC",payment_provider="local"):
         machine=self.machine(machine_id)
         if machine["status"]!="active": raise ValueError("machine_not_active")
         if not idempotency_key: raise ValueError("idempotency_key_required")
+        if payment_method not in {"NFC","QRIS"}: raise ValueError("unsupported_vending_payment_method")
+        if payment_method=="NFC" and payment_provider!="local": raise ValueError("invalid_nfc_provider")
+        if payment_method=="QRIS" and not payment_provider: raise ValueError("qris_provider_required")
         with self.db.connect() as c:
             old=c.execute("SELECT * FROM vending_transactions WHERE idempotency_key=?",(idempotency_key,)).fetchone()
             if old: return dict(old)
@@ -150,9 +153,11 @@ class VendingService:
             if p["stock"]<=0: raise ValueError("out_of_stock")
             tx="vend-"+uuid4().hex
             c.execute("""INSERT INTO vending_transactions
-                (transaction_id,machine_id,product_id,credential_id,account_id,amount,status,dispense_status,idempotency_key)
-                VALUES(?,?,?,?,?,?,?,?,?)""",
-                (tx,machine_id,product_id,credential_id,account_id,p["price"],"pending","pending",idempotency_key))
+                (transaction_id,machine_id,product_id,credential_id,account_id,base_amount,discount_amount,amount,
+                 payment_method,payment_provider,payment_status,status,dispense_status,idempotency_key)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (tx,machine_id,product_id,credential_id,account_id,p["price"],0,p["price"],payment_method,payment_provider,
+                 "pending","pending","pending",idempotency_key))
             c.commit()
         return self.get(tx)
 
@@ -161,16 +166,18 @@ class VendingService:
         if tx["status"]=="completed": return tx
         if tx["status"] in {"failed","refunded"}: return tx
         try:
+            if tx["payment_method"]=="QRIS":
+                raise ValueError("qris_payment_provider_not_activated")
             payment=self.payment.pay(tx["credential_id"],tx["account_id"],tx["amount"],
-                reference=transaction_id,method="NFC",provider="local",
+                reference=transaction_id,method=tx["payment_method"],provider=tx["payment_provider"],
                 idempotency_key="vending-payment:"+transaction_id)
         except Exception:
             with self.db.connect() as c:
-                c.execute("UPDATE vending_transactions SET status='failed',dispense_status='not_started' WHERE transaction_id=?",(transaction_id,))
+                c.execute("UPDATE vending_transactions SET status='failed',payment_status='failed',dispense_status='not_started' WHERE transaction_id=?",(transaction_id,))
                 c.commit()
             raise
         with self.db.connect() as c:
-            c.execute("UPDATE vending_transactions SET status='authorized',payment_transaction_id=? WHERE transaction_id=?",(payment["transaction_id"],transaction_id))
+            c.execute("UPDATE vending_transactions SET status='authorized',payment_status='completed',payment_transaction_id=? WHERE transaction_id=?",(payment["transaction_id"],transaction_id))
             c.commit()
         return self.get(transaction_id)
 
@@ -184,7 +191,7 @@ class VendingService:
                 c.rollback()
                 return self._fail_and_refund(tx)
             c.execute("UPDATE vending_products SET stock=stock-1 WHERE product_id=? AND machine_id=? AND stock>0",(tx["product_id"],tx["machine_id"]))
-            c.execute("""UPDATE vending_transactions SET status='completed',dispense_status='success',
+            c.execute("""UPDATE vending_transactions SET status='completed',payment_status='completed',dispense_status='success',
                 completed_at=CURRENT_TIMESTAMP WHERE transaction_id=?""",(transaction_id,))
             c.execute("INSERT INTO audit_events(event_type,entity_type,entity_id,detail) VALUES(?,?,?,?)",
                 ("vending","vending_transaction",transaction_id,"dispensed"))
@@ -196,7 +203,7 @@ class VendingService:
             reference="refund:"+tx["transaction_id"],
             idempotency_key="vending-refund:"+tx["transaction_id"])
         with self.db.connect() as c:
-            c.execute("UPDATE vending_transactions SET status='refunded',dispense_status='failed' WHERE transaction_id=?",(tx["transaction_id"],))
+            c.execute("UPDATE vending_transactions SET status='refunded',payment_status='refunded',dispense_status='failed' WHERE transaction_id=?",(tx["transaction_id"],))
             c.commit()
         return self.get(tx["transaction_id"])
 
