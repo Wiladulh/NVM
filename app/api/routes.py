@@ -69,6 +69,8 @@ def build_router(db):
                           remaining_balance,status,created_at
                    FROM loan_accounts ORDER BY created_at DESC LIMIT 50""").fetchall()
             machines = c.execute("SELECT machine_id,name,status,NULL AS last_seen FROM vending_machines ORDER BY name").fetchall()
+            products = c.execute("""SELECT product_id,machine_id,name,price,stock,enabled
+                   FROM vending_products ORDER BY machine_id,product_id""").fetchall()
             devices = c.execute("SELECT device_id,device_type,status,last_seen FROM device_registry ORDER BY device_id").fetchall()
         return {
             "members": [dict(x) for x in members],
@@ -76,6 +78,7 @@ def build_router(db):
             "payments": [dict(x) for x in payments_rows],
             "loans": [dict(x) for x in loans],
             "machines": [dict(x) for x in machines],
+            "products": [dict(x) for x in products],
             "devices": [dict(x) for x in devices],
         }
 
