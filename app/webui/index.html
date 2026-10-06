@@ -4,47 +4,52 @@
 <style>
 body{font-family:system-ui,sans-serif;margin:0;background:#f5f5f5;color:#222}header{background:#222;color:#fff;padding:16px}main{padding:16px;max-width:1100px;margin:auto}
 section{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px #ccc}h2{margin-top:0;font-size:18px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.card{border:1px solid #ddd;border-radius:8px;padding:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.card{border:1px solid #ddd;border-radius:8px;padding:10px}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:7px;border-bottom:1px solid #ddd}
 button{padding:9px 14px;border:0;border-radius:7px;cursor:pointer}input,select{padding:8px;margin:3px;width:calc(100% - 28px)}
-.ok{font-weight:600}
+.result{margin-top:8px;white-space:pre-wrap;font-size:13px}
 </style></head><body><header><b>NVM — Natura Vending Machine</b><div id="status">Memuat...</div></header>
 <main>
 <section><h2>Ringkasan</h2><div id="summary" class="grid"></div></section>
+<section><h2>Perangkat</h2><div id="devices"></div></section>
 <section><h2>Saldo / Rekening</h2><div id="accounts"></div></section>
 <section><h2>Deposit / Penarikan</h2>
-<form id="financialForm"><input id="account" placeholder="Account ID" required>
-<input id="amount" type="number" min="1" placeholder="Jumlah" required>
+<form id="financialForm"><input id="account" placeholder="Account ID" required><input id="amount" type="number" min="1" placeholder="Jumlah" required>
 <select id="direction"><option value="credit">Deposit / Kredit</option><option value="debit">Penarikan / Debit</option></select>
-<input id="reference" placeholder="Referensi">
-<button type="submit">Proses</button></form><div id="financialResult"></div></section>
+<input id="reference" placeholder="Referensi"><button type="submit">Proses</button></form><div id="financialResult" class="result"></div></section>
 <section><h2>Pembayaran NFC / QRIS</h2>
-<form id="paymentForm"><input id="credential" placeholder="Credential ID" required>
-<input id="payaccount" placeholder="Account ID" required><input id="payamount" type="number" min="1" placeholder="Jumlah" required>
-<select id="method"><option>NFC</option><option>QRIS</option><option>CASH</option></select>
-<input id="provider" placeholder="Provider" value="local"><input id="idem" placeholder="Idempotency key">
-<button type="submit">Bayar</button></form><div id="paymentResult"></div></section>
+<form id="paymentForm"><input id="credential" placeholder="Credential ID" required><input id="payaccount" placeholder="Account ID" required>
+<input id="payamount" type="number" min="1" placeholder="Jumlah" required><select id="method"><option>NFC</option><option>QRIS</option><option>CASH</option></select>
+<input id="provider" placeholder="Provider" value="local"><input id="idem" placeholder="Idempotency key"><button type="submit">Bayar</button></form><div id="paymentResult" class="result"></div></section>
 <section><h2>Anggota</h2><div id="members"></div></section>
 <section><h2>Transaksi Pembayaran</h2><div id="payments"></div></section>
 <section><h2>Pinjaman</h2><div id="loans"></div></section>
-<section><h2>Vending / Machine</h2><div id="machines"></div></section><section><h2>Inventory Produk</h2><div id="products"></div></section>
+<section><h2>Vending / Machine</h2><div id="machines"></div></section>
+<section><h2>Inventory Produk</h2><div id="products"></div>
+<form id="productForm"><input id="machineId" placeholder="Machine ID" required><input id="productId" placeholder="Product ID" required>
+<input id="productName" placeholder="Nama produk" required><input id="productPrice" type="number" min="1" placeholder="Harga" required>
+<input id="productStock" type="number" min="0" placeholder="Stok" required><label><input id="productEnabled" type="checkbox" checked> Aktif</label><br>
+<button type="submit">Simpan Produk</button></form><div id="productResult" class="result"></div></section>
 </main>
 <script>
 const money=n=>new Intl.NumberFormat('id-ID').format(n);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function table(rows,cols){if(!rows.length)return '<p>Belum ada data.</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
-async function load(){
- const h=await fetch('/api/v1/health').then(r=>r.json()); document.getElementById('status').textContent='Status: '+h.status;
- const d=await fetch('/api/v1/dashboard').then(r=>r.json());
- document.getElementById('summary').innerHTML=[['Anggota',d.members.length],['Rekening',d.accounts.length],['Pembayaran',d.payments.length],['Pinjaman',d.loans.length],['Vending',d.machines.length]].map(x=>'<div class="card"><b>'+x[0]+'</b><div>'+x[1]+'</div></div>').join('');
- document.getElementById('accounts').innerHTML=table(d.accounts.map(x=>({...x,balance:money(x.balance)})),['account_id','member_name','account_type','balance','status']);
- document.getElementById('members').innerHTML=table(d.members,['member_id','name','status','created_at']);
- document.getElementById('payments').innerHTML=table(d.payments,['transaction_id','account_id','amount','method','provider','status','created_at']);
- document.getElementById('loans').innerHTML=table(d.loans,['loan_id','member_id','principal','installment_amount','remaining_balance','status']);
- document.getElementById('machines').innerHTML=table(d.machines,['machine_id','name','status','last_seen']);
- document.getElementById('products').innerHTML=table(d.products.map(x=>({...x,price:money(x.price),enabled:x.enabled?'yes':'no'})),['product_id','machine_id','name','price','stock','enabled']);
-}
-document.getElementById('financialForm').onsubmit=async e=>{e.preventDefault();const q={amount:+amount.value,reference:reference.value||null,idempotency_key:null};const r=await fetch('/api/v1/accounts/'+encodeURIComponent(account.value)+'/'+direction.value,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});financialResult.textContent=JSON.stringify(await r.json());if(r.ok)load()};
-document.getElementById('paymentForm').onsubmit=async e=>{e.preventDefault();const q={credential_id:credential.value,account_id:payaccount.value,amount:+payamount.value,method:method.value,provider:provider.value||'local',idempotency_key:idem.value||null};const r=await fetch('/api/v1/payments',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});paymentResult.textContent=JSON.stringify(await r.json());if(r.ok)load()};
+async function json(url,opt){const r=await fetch(url,opt);let d={};try{d=await r.json()}catch{}return {r,d}}
+async function load(){try{
+const h=await fetch('/api/v1/health').then(r=>r.json());document.getElementById('status').textContent='Status: '+h.status;
+const d=await fetch('/api/v1/dashboard').then(r=>r.json());
+document.getElementById('summary').innerHTML=[['Anggota',d.members.length],['Rekening',d.accounts.length],['Pembayaran',d.payments.length],['Pinjaman',d.loans.length],['Vending',d.machines.length],['Perangkat',d.devices.length]].map(x=>'<div class="card"><b>'+x[0]+'</b><div>'+x[1]+'</div></div>').join('');
+document.getElementById('devices').innerHTML=table(d.devices,['device_id','device_type','status','last_seen']);
+document.getElementById('accounts').innerHTML=table(d.accounts.map(x=>({...x,balance:money(x.balance)})),['account_id','member_name','account_type','balance','status']);
+document.getElementById('members').innerHTML=table(d.members,['member_id','name','status','created_at']);
+document.getElementById('payments').innerHTML=table(d.payments,['transaction_id','account_id','amount','method','provider','device_id','status','created_at']);
+document.getElementById('loans').innerHTML=table(d.loans,['loan_id','member_id','principal','installment_amount','remaining_balance','status']);
+document.getElementById('machines').innerHTML=table(d.machines,['machine_id','name','status','last_seen']);
+document.getElementById('products').innerHTML=table(d.products.map(x=>({...x,price:money(x.price),enabled:x.enabled?'yes':'no'})),['product_id','machine_id','name','price','stock','enabled']);
+}catch(e){document.getElementById('status').textContent='Status: gagal memuat'}}
+document.getElementById('financialForm').onsubmit=async e=>{e.preventDefault();const q={amount:+amount.value,reference:reference.value||null,idempotency_key:null};const {r,d}=await json('/api/v1/accounts/'+encodeURIComponent(account.value)+'/'+direction.value,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});financialResult.textContent=JSON.stringify(d);if(r.ok)load()};
+document.getElementById('paymentForm').onsubmit=async e=>{e.preventDefault();const q={credential_id:credential.value,account_id:payaccount.value,amount:+payamount.value,method:method.value,provider:provider.value||'local',idempotency_key:idem.value||null};const {r,d}=await json('/api/v1/payments',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});paymentResult.textContent=JSON.stringify(d);if(r.ok)load()};
+document.getElementById('productForm').onsubmit=async e=>{e.preventDefault();const mid=machineId.value.trim(),pid=productId.value.trim();const q={product_id:pid,name:productName.value.trim(),price:+productPrice.value,stock:+productStock.value,enabled:productEnabled.checked};const {r,d}=await json('/api/v1/vending/'+encodeURIComponent(mid)+'/products/'+encodeURIComponent(pid),{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(q)});productResult.textContent=JSON.stringify(d);if(r.ok)load()};
 load();
 </script></body></html>
