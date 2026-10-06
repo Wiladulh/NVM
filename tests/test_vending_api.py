@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
+import hashlib
 import app.main as main
 
 def seed(client):
@@ -8,7 +9,9 @@ def seed(client):
         c.execute("INSERT INTO identity_members(member_id,name) VALUES('m1','Member')")
         c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
         c.execute("INSERT INTO financial_ledger(account_id,direction,amount,reference) VALUES('a1','credit',10000,'seed')")
-        c.execute("INSERT INTO vending_machines(machine_id,name,status) VALUES('v1','Vending 1','active')")
+        c.execute("INSERT INTO device_registry(device_id,device_type,status,auth_key_hash) VALUES('vm-01','esp32-s3-vending','active',?)",
+                  (hashlib.sha256(b'vm-secret').hexdigest(),))
+        c.execute("INSERT INTO vending_machines(machine_id,name,status,device_id) VALUES('v1','Vending 1','active','vm-01')")
         c.execute("INSERT INTO vending_products(product_id,machine_id,name,price,stock) VALUES('water','v1','Water',5000,1)")
         c.execute("INSERT INTO credential_registry(credential_id,credential_type,member_id,status,enabled) VALUES('nfc1','nfc','m1','active',1)")
         c.commit()
@@ -25,13 +28,13 @@ def test_vending_api_payment_and_dispense():
             assert products.json()["products"][0]["stock"] == 1
             tx = client.post("/api/v1/vending/v1/transactions", json={
                 "product_id":"water","credential_id":"nfc1","account_id":"a1",
-                "idempotency_key":"vend-api-1"})
+                "idempotency_key":"vend-api-1"} , headers={"X-NVM-Device-Key":"vm-secret"})
             assert tx.status_code == 200
             tid = tx.json()["transaction_id"]
-            auth = client.post(f"/api/v1/vending/transactions/{tid}/authorize")
+            auth = client.post(f"/api/v1/vending/transactions/{tid}/authorize", headers={"X-NVM-Device-Key":"vm-secret"})
             assert auth.status_code == 200
             assert auth.json()["status"] == "authorized"
-            done = client.post(f"/api/v1/vending/transactions/{tid}/dispense", json={"success":True})
+            done = client.post(f"/api/v1/vending/transactions/{tid}/dispense", json={"success":True}, headers={"X-NVM-Device-Key":"vm-secret"})
             assert done.status_code == 200
             assert done.json()["status"] == "completed"
             assert client.get("/api/v1/accounts/a1/balance").json()["balance"] == 5000
@@ -48,10 +51,10 @@ def test_vending_api_failed_dispense_refunds():
             seed(client)
             tx = client.post("/api/v1/vending/v1/transactions", json={
                 "product_id":"water","credential_id":"nfc1","account_id":"a1",
-                "idempotency_key":"vend-api-fail"}).json()
+                "idempotency_key":"vend-api-fail"}, headers={"X-NVM-Device-Key":"vm-secret"}).json()
             tid = tx["transaction_id"]
-            assert client.post(f"/api/v1/vending/transactions/{tid}/authorize").status_code == 200
-            failed = client.post(f"/api/v1/vending/transactions/{tid}/dispense", json={"success":False})
+            assert client.post(f"/api/v1/vending/transactions/{tid}/authorize", headers={"X-NVM-Device-Key":"vm-secret"}).status_code == 200
+            failed = client.post(f"/api/v1/vending/transactions/{tid}/dispense", json={"success":False}, headers={"X-NVM-Device-Key":"vm-secret"})
             assert failed.status_code == 200
             assert failed.json()["status"] == "refunded"
             assert failed.json()["dispense_status"] == "failed"
