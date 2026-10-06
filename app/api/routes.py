@@ -140,7 +140,6 @@ def build_router(db):
 
     @r.post("/devices/{device_id}/provision")
     def device_provision(device_id,q:DeviceProvisionRequest,x_nvm_admin_token: str | None = Header(default=None)):
-        if not db.connect: pass
         if not app_settings.admin_token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,app_settings.admin_token):
             raise HTTPException(401,"admin_auth_required")
         if not device_id.strip() or not q.device_type.strip():
