@@ -1,16 +1,14 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
-from app.main import create_app
-from app.core.config import get_settings
+import app.main as main
 
 def test_dashboard_exposes_financial_payment_and_vending_data():
     with TemporaryDirectory() as d:
-        import app.core.config as config
-        old = config.get_settings
-        config.get_settings = lambda: type("S", (), {"db_path": Path(d) / "nvm.db"})()
+        old = main.get_settings
+        main.get_settings = lambda: type("S", (), {"db_path": Path(d) / "nvm.db"})()
         try:
-            client = TestClient(create_app())
+            client = TestClient(main.create_app())
             with client.app.state.db.connect() as c:
                 c.execute("INSERT INTO identity_members(member_id,name) VALUES('m1','Member')")
                 c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
@@ -25,4 +23,4 @@ def test_dashboard_exposes_financial_payment_and_vending_data():
             assert data["machines"][0]["machine_id"] == "v1"
             assert client.get("/").status_code == 200
         finally:
-            config.get_settings = old
+            main.get_settings = old
