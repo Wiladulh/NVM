@@ -30,10 +30,12 @@ class Database:
                 "provider_transaction_id": "TEXT",
                 "provider_reference": "TEXT",
                 "failure_reason": "TEXT",
+                "device_id": "TEXT",
             }
             for name, definition in additions.items():
                 if name not in columns:
                     c.execute(f"ALTER TABLE payment_transactions ADD COLUMN {name} {definition}")
             c.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_idempotency ON payment_transactions(idempotency_key) WHERE idempotency_key IS NOT NULL")
             c.execute("CREATE INDEX IF NOT EXISTS ix_payment_provider_tx ON payment_transactions(provider,provider_transaction_id)")
+            c.execute("CREATE INDEX IF NOT EXISTS ix_payment_device ON payment_transactions(device_id,created_at)")
             c.commit()
