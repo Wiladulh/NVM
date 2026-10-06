@@ -22,7 +22,7 @@ String postJson(const String& path, const String& body, int& code) {
 
 void heartbeat() {
   int code = 0;
-  String body = "{"device_type":"esp32-cashier","status":"active"}";
+  String body = "{\"device_type\":\"esp32-cashier\",\"status\":\"active\"}";
   String reply = postJson(String("/api/v1/devices/") + DEVICE_ID + "/heartbeat", body, code);
   Serial.printf("HEARTBEAT %d %s\n", code, reply.c_str());
 }
@@ -39,12 +39,12 @@ void connectWifi() {
 }
 
 void cashierPayment(const String& credential, const String& account, long amount, const String& sequence) {
-  String body = "{"device_id":"" + String(DEVICE_ID) +
-                "","credential_id":"" + credential +
-                "","account_id":"" + account +
-                "","amount":" + String(amount) +
-                ","method":"NFC","provider":"local","idempotency_key":"" +
-                String(DEVICE_ID) + ":" + sequence + ""}";
+  String body = "{\"device_id\":\"" + String(DEVICE_ID) +
+                "\",\"credential_id\":\"" + credential +
+                "\",\"account_id\":\"" + account +
+                "\",\"amount\":" + String(amount) +
+                ",\"method\":\"NFC\",\"provider\":\"local\",\"idempotency_key\":\"" +
+                String(DEVICE_ID) + ":" + sequence + "\"}";
   int code = 0;
   String reply = postJson("/api/v1/cashier/payments", body, code);
   Serial.printf("PAYMENT %d %s\n", code, reply.c_str());
