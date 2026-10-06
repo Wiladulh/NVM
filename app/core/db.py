@@ -26,6 +26,12 @@ class Database:
                 # finalized vending schema. Older databases already have the
                 # legacy tables from 001_initial.sql, so add those columns
                 # before executing 006. This preserves all legacy rows.
+                if path.name == "008_member_pin.sql":
+                    columns = {row[1] for row in c.execute("PRAGMA table_info(identity_members)")}
+                    if "pin_salt" not in columns: c.execute("ALTER TABLE identity_members ADD COLUMN pin_salt TEXT")
+                    if "pin_hash" not in columns: c.execute("ALTER TABLE identity_members ADD COLUMN pin_hash TEXT")
+                    continue
+
                 if path.name == "006_vending.sql":
                     product_columns = {
                         row[1] for row in c.execute("PRAGMA table_info(vending_products)")
