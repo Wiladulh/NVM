@@ -60,13 +60,41 @@ void cashierPayment(const String& credential,const String& account,long amount,c
               String(DEVICE_ID)+":"+seq+"\",\"pin\":\""+pin+"\"}";
   int code=0; String reply=postJson("/api/v1/cashier/payments",body,code);
   Serial.printf("PAYMENT %d %s\n",code,reply.c_str());
+  if(code==200){
+    int p=reply.indexOf("\"balance\":");
+    long bal=p>=0?reply.substring(p+10).toInt():0;
+    lcdShow("SUKSES","Saldo terpotong");
+    delay(1200);
+    lcdShow("Saldo sisa","Rp."+String(bal));
+    delay(2200);
+  }else if(code==403){lcdShow("GAGAL","PIN salah");delay(1800);}
+  else if(code==409){lcdShow("GAGAL","Saldo tidak cukup");delay(1800);}
+  else {lcdShow("GAGAL","Server "+String(code));delay(1800);}
+}
+
+String findAccount(const String& credential){
+  HTTPClient http;
+  http.begin(String(NVM_BASE_URL)+"/api/v1/credentials/"+credential+"/account");
+  http.setTimeout(8000);
+  int code=http.GET();
+  String out=code>0?http.getString():"";
+  http.end();
+  if(code!=200)return "";
+  String key="\"account_id\":\"";
+  int p=out.indexOf(key);
+  if(p<0)return "";
+  p+=key.length();
+  int e=out.indexOf("\"",p);
+  return e>p?out.substring(p,e):"";
 }
 
 void scanCard(){
-  if(!readerReady||paymentAccount.length()==0||paymentAmount<=0)return;
+  if(!readerReady||paymentAmount<=0)return;
   uint8_t uid[7]={0},len=0;
   if(!card.readUID(uid,len))return;
   String credential=uidToCredential(uid,len); ++paymentSequence;
+  paymentAccount=findAccount(credential);
+  if(paymentAccount==""){lcdShow("KARTU DITOLAK","Akun tidak ada");delay(1800);return;}
   lcdShow("Kartu diterima","PIN:");
   String pin=readKeyDigits("PIN:",true);
   Serial.printf("CARD %s -> %s amount=%ld account=%s\n",card.name(),credential.c_str(),paymentAmount,paymentAccount.c_str());
