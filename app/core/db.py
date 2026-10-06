@@ -22,10 +22,6 @@ class Database:
 
         with self.connect() as c:
             for path in paths:
-                # 006_vending.sql creates indexes on columns introduced by the
-                # finalized vending schema. Older databases already have the
-                # legacy tables from 001_initial.sql, so add those columns
-                # before executing 006. This preserves all legacy rows.
                 if path.name == "008_member_pin.sql":
                     columns = {row[1] for row in c.execute("PRAGMA table_info(identity_members)")}
                     if "pin_salt" not in columns: c.execute("ALTER TABLE identity_members ADD COLUMN pin_salt TEXT")
@@ -43,13 +39,10 @@ class Database:
                     }
                     for name, definition in product_additions.items():
                         if name not in product_columns:
-                            c.execute(
-                                f"ALTER TABLE vending_products ADD COLUMN {name} {definition}"
-                            )
+                            c.execute(f"ALTER TABLE vending_products ADD COLUMN {name} {definition}")
 
                     transaction_columns = {
-                        row[1]
-                        for row in c.execute("PRAGMA table_info(vending_transactions)")
+                        row[1] for row in c.execute("PRAGMA table_info(vending_transactions)")
                     }
                     transaction_additions = {
                         "credential_id": "TEXT",
@@ -61,30 +54,65 @@ class Database:
                     }
                     for name, definition in transaction_additions.items():
                         if name not in transaction_columns:
+                            c.execute(f"ALTER TABLE vending_transactions ADD COLUMN {name} {definition}")
+
+                if path.name == "009_vending_registry.sql":
+                    machine_columns = {row[1] for row in c.execute("PRAGMA table_info(vending_machines)")}
+                    machine_additions = {
+                        "location": "TEXT NOT NULL DEFAULT ''",
+                        "device_id": "TEXT",
+                        "updated_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                    }
+                    for name, definition in machine_additions.items():
+                        if name not in machine_columns:
+                            c.execute(f"ALTER TABLE vending_machines ADD COLUMN {name} {definition}")
+
+                    product_columns = {row[1] for row in c.execute("PRAGMA table_info(vending_products)")}
+                    product_additions = {
+                        "slot": "INTEGER",
+                        "capacity": "INTEGER NOT NULL DEFAULT 0",
+                        "servo_channel": "INTEGER",
+                    }
+                    for name, definition in product_additions.items():
+                        if name not in product_columns:
+                            c.execute(f"ALTER TABLE vending_products ADD COLUMN {name} {definition}")
+
+                    machines = [row[0] for row in c.execute("SELECT machine_id FROM vending_machines ORDER BY machine_id")]
+                    for machine_id in machines:
+                        rows = c.execute(
+                            "SELECT product_id,stock,slot FROM vending_products "
+                            "WHERE machine_id=? ORDER BY created_at,product_id",
+                            (machine_id,),
+                        ).fetchall()
+                        used = {row["slot"] for row in rows if row["slot"] is not None}
+                        next_slot = 1
+                        for row in rows:
+                            slot = row["slot"]
+                            if slot is None:
+                                while next_slot in used:
+                                    next_slot += 1
+                                if next_slot <= 5:
+                                    slot = next_slot
+                                    used.add(slot)
+                                else:
+                                    continue
                             c.execute(
-                                f"ALTER TABLE vending_transactions ADD COLUMN {name} {definition}"
+                                "UPDATE vending_products SET slot=?, capacity=CASE WHEN capacity=0 THEN stock ELSE capacity END, "
+                                "servo_channel=CASE WHEN servo_channel IS NULL THEN ? ELSE servo_channel END "
+                                "WHERE product_id=?",
+                                (slot, slot, row["product_id"]),
                             )
+                            next_slot += 1
 
                 c.executescript(path.read_text(encoding="utf-8"))
 
-            # Upgrade databases created before the finalized vending schema.
-            vending_columns = {
-                row[1] for row in c.execute("PRAGMA table_info(vending_machines)")
-            }
+            vending_columns = {row[1] for row in c.execute("PRAGMA table_info(vending_machines)")}
             if vending_columns and "machine_id" not in vending_columns:
                 c.execute("ALTER TABLE vending_machines ADD COLUMN machine_id TEXT")
-                c.execute(
-                    "UPDATE vending_machines SET machine_id='legacy-' || rowid "
-                    "WHERE machine_id IS NULL"
-                )
-                c.execute(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS "
-                    "ux_vending_machines_machine_id ON vending_machines(machine_id)"
-                )
+                c.execute("UPDATE vending_machines SET machine_id='legacy-' || rowid WHERE machine_id IS NULL")
+                c.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_vending_machines_machine_id ON vending_machines(machine_id)")
 
-            columns = {
-                row[1] for row in c.execute("PRAGMA table_info(payment_transactions)")
-            }
+            columns = {row[1] for row in c.execute("PRAGMA table_info(payment_transactions)")}
             additions = {
                 "method": "TEXT NOT NULL DEFAULT 'NFC'",
                 "provider": "TEXT NOT NULL DEFAULT 'local'",
@@ -96,13 +124,10 @@ class Database:
             }
             for name, definition in additions.items():
                 if name not in columns:
-                    c.execute(
-                        f"ALTER TABLE payment_transactions ADD COLUMN {name} {definition}"
-                    )
+                    c.execute(f"ALTER TABLE payment_transactions ADD COLUMN {name} {definition}")
             c.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_idempotency "
-                "ON payment_transactions(idempotency_key) "
-                "WHERE idempotency_key IS NOT NULL"
+                "ON payment_transactions(idempotency_key) WHERE idempotency_key IS NOT NULL"
             )
             c.execute(
                 "CREATE INDEX IF NOT EXISTS ix_payment_provider_tx "
