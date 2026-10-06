@@ -14,13 +14,13 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 
 #define PN532_SDA 21
 #define PN532_SCL 22
-#define PN532_IRQ 4
+#define PN532_IRQ 34
 #define PN532_RESET 5
 #define RC522_SCK 18
 #define RC522_MISO 19
 #define RC522_MOSI 23
 #define RC522_SS 27
-#define RC522_RST 26
+#define RC522_RST 4
 
 NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_SS,RC522_RST);
 unsigned long lastHeartbeat=0,paymentSequence=0;
@@ -63,7 +63,7 @@ void cashierPayment(const String& credential,const String& account,long amount,c
   if(code==200){
     int p=reply.indexOf("\"balance\":");
     long bal=p>=0?reply.substring(p+10).toInt():0;
-    lcdShow("SUKSES","Saldo terpotong");
+    lcdShow("SUKSES","Terpotong Rp."+String(amount));
     delay(1200);
     lcdShow("Saldo sisa","Rp."+String(bal));
     delay(2200);
@@ -113,7 +113,7 @@ String readKeyDigits(const char* title,bool masked){
   String s=""; lcdShow(title,"");
   while(true){
     char k=nvmKeypad.getKey();
-    if(k>='0'&&k<='9'&&s.length()<9){
+    if(k>='0'&&k<='9'&&s.length()<6){
       s+=k; String v="";
       for(size_t i=0;i<s.length();++i) v+=masked?"*":String(s[i]);
       lcdShow(title,v);
@@ -137,5 +137,7 @@ void setup(){
 void loop(){
   if(WiFi.status()!=WL_CONNECTED)connectWifi();
   if(millis()-lastHeartbeat>=30000UL){lastHeartbeat=millis();heartbeat();}
-  if(paymentAmount<=0) paymentAmount=readCashierAmount();\n  if(paymentAmount>0) scanCard();\n  paymentAmount=0;
+  if(paymentAmount<=0) paymentAmount=readCashierAmount();
+  if(paymentAmount>0) scanCard();
+  paymentAmount=0;
 }
