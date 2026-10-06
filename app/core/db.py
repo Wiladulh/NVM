@@ -106,6 +106,19 @@ class Database:
 
                 c.executescript(path.read_text(encoding="utf-8"))
 
+            vending_tx_columns = {row[1] for row in c.execute("PRAGMA table_info(vending_transactions)")}
+            vending_tx_additions = {
+                "base_amount": "INTEGER",
+                "discount_amount": "INTEGER NOT NULL DEFAULT 0",
+                "payment_method": "TEXT NOT NULL DEFAULT 'NFC'",
+                "payment_provider": "TEXT NOT NULL DEFAULT 'local'",
+                "payment_status": "TEXT NOT NULL DEFAULT 'pending'",
+            }
+            for name, definition in vending_tx_additions.items():
+                if name not in vending_tx_columns:
+                    c.execute(f"ALTER TABLE vending_transactions ADD COLUMN {name} {definition}")
+            c.execute("UPDATE vending_transactions SET base_amount=amount WHERE base_amount IS NULL")
+
             vending_columns = {row[1] for row in c.execute("PRAGMA table_info(vending_machines)")}
             if vending_columns and "machine_id" not in vending_columns:
                 c.execute("ALTER TABLE vending_machines ADD COLUMN machine_id TEXT")
