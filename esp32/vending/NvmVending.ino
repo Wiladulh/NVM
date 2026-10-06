@@ -40,7 +40,7 @@ struct Product{String id,name;long price;int stock;bool enabled;int servo_channe
 Product productsList[16];
 
 String request(const String& method,const String& path,const String& body,int& code){
-  HTTPClient http; http.begin(String(NVM_BASE_URL)+path); http.addHeader("Content-Type","application/json");
+  HTTPClient http; http.begin(String(NVM_BASE_URL)+path); http.addHeader("Content-Type","application/json");http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY);
   if(method=="GET")code=http.GET();else if(method=="POST")code=http.POST(body);else code=-1;
   String out=code>0?http.getString():"";http.end();return out;
 }
