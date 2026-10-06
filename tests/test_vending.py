@@ -38,3 +38,16 @@ def test_vending_rejects_empty_and_failed_dispense():
         failed=f.dispense(tx["transaction_id"],False)
         assert failed["status"]=="failed"
         assert f.products("vm-01")[0]["stock"]==2
+
+    
+def test_vending_failed_dispense_refunds_payment():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        f=VendingService(db)
+        f.payment.financial.credit("vm-acct",5000,idempotency_key="refund-credit")
+        tx=f.begin("vm-01","water","vm-nfc","vm-acct","vend-refund")
+        f.authorize(tx["transaction_id"])
+        failed=f.dispense(tx["transaction_id"],False)
+        assert failed["status"]=="refunded"
+        assert f.payment.financial.balance("vm-acct")==5000
+        assert f.products("vm-01")[0]["stock"]==2
