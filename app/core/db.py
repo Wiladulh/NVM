@@ -22,6 +22,14 @@ class Database:
         with self.connect() as c:
             for path in paths:
                 c.executescript(path.read_text(encoding="utf-8"))
+
+            # Upgrade databases created before the finalized vending schema.
+            vending_columns = {row[1] for row in c.execute("PRAGMA table_info(vending_machines)")}
+            if vending_columns and "machine_id" not in vending_columns:
+                c.execute("ALTER TABLE vending_machines ADD COLUMN machine_id TEXT")
+                c.execute("UPDATE vending_machines SET machine_id='legacy-' || rowid WHERE machine_id IS NULL")
+                c.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_vending_machines_machine_id ON vending_machines(machine_id)")
+
             columns = {row[1] for row in c.execute("PRAGMA table_info(payment_transactions)")}
             additions = {
                 "method": "TEXT NOT NULL DEFAULT 'NFC'",
