@@ -47,3 +47,23 @@ def test_vending_rejects_invalid_method_provider_pair():
         f=VendingService(db)
         with pytest.raises(ValueError, match="invalid_nfc_provider"):
             f.begin("pm-01","water","pm-nfc","pm-acct","pm-invalid-1","NFC","provider-x")
+
+
+def test_vending_promo_foundation_is_scoped_by_machine_product_and_method():
+    with TemporaryDirectory() as d:
+        db=Database(Path(d)/"nvm.db"); db.migrate(); seed(db)
+        with db.connect() as c:
+            c.execute("""INSERT INTO vending_promo_rules
+                (promo_id,machine_id,product_id,payment_method,payment_provider,discount_percent,starts_at,ends_at)
+                VALUES(?,?,?,?,?,?,?,?)""",
+                ("promo-nfc","pm-01","water","NFC","local",10,"2026-10-01T00:00:00","2026-10-31T23:59:59"))
+            c.execute("""INSERT INTO vending_promo_rules
+                (promo_id,machine_id,product_id,payment_method,payment_provider,discount_percent)
+                VALUES(?,?,?,?,?,?)""",
+                ("promo-qris","pm-01","water","QRIS","provider-x",20))
+            rows=c.execute("""SELECT promo_id,machine_id,product_id,payment_method,payment_provider,discount_percent
+                FROM vending_promo_rules WHERE machine_id=? ORDER BY promo_id""",("pm-01",)).fetchall()
+        assert [dict(r) for r in rows]==[
+            {"promo_id":"promo-nfc","machine_id":"pm-01","product_id":"water","payment_method":"NFC","payment_provider":"local","discount_percent":10},
+            {"promo_id":"promo-qris","machine_id":"pm-01","product_id":"water","payment_method":"QRIS","payment_provider":"provider-x","discount_percent":20},
+        ]
