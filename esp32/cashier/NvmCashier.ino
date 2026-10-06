@@ -67,8 +67,10 @@ void scanCard(){
   uint8_t uid[7]={0},len=0;
   if(!card.readUID(uid,len))return;
   String credential=uidToCredential(uid,len); ++paymentSequence;
+  lcdShow("Kartu diterima","PIN:");
+  String pin=readKeyDigits("PIN:",true);
   Serial.printf("CARD %s -> %s amount=%ld account=%s\n",card.name(),credential.c_str(),paymentAmount,paymentAccount.c_str());
-  cashierPayment(credential,paymentAccount,paymentAmount,String(paymentSequence));
+  cashierPayment(credential,paymentAccount,paymentAmount,String(paymentSequence),pin);
   delay(700);
 }
 
@@ -98,7 +100,7 @@ String readKeyDigits(const char* title,bool masked){
 long readCashierAmount(){
   return readKeyDigits("Nominal:","").toInt();
 }
-\nvoid setup(){
+void setup(){
   Serial.begin(115200); delay(300); connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
   lcdShow("KASIR NVM","Masukkan nominal");
