@@ -48,6 +48,7 @@ mkdir -p "$PREFIX/bin"
 
 cat > "$PREFIX/bin/nvm" <<EOF
 #!/bin/sh
+export NVM_DATA_DIR="$DATA"
 exec "$PREFIX/venv/bin/nvm" "\\$@"
 EOF
 chmod 0755 "$PREFIX/bin/nvm"
@@ -55,6 +56,7 @@ chmod 0755 "$PREFIX/bin/nvm"
 cat > "$PREFIX/bin/nvm-server" <<EOF
 #!/bin/sh
 set -eu
+export NVM_DATA_DIR="$DATA"
 exec "$PREFIX/venv/bin/uvicorn" app.main:app --host "\\${NVM_HOST:-127.0.0.1}" --port "\\${NVM_PORT:-8011}"
 EOF
 chmod 0755 "$PREFIX/bin/nvm-server"
