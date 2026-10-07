@@ -24,7 +24,7 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 #define RC522_RST 4
 
 NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_SS,RC522_RST);
-unsigned long lastHeartbeat=0,paymentSequence=0;
+unsigned long lastHeartbeat=0,paymentSequence=0,depositSequence=0;
 bool readerReady=false;
 long paymentAmount=0;
 
@@ -73,6 +73,32 @@ void cashierPayment(const String& credential,long amount,const String& seq,const
   else {lcdShow("GAGAL","Server "+String(code));delay(1800);}
 }
 
+void cashierTopup(const String& credential,long amount,const String& seq,const String& operatorPin,const String& memberPin){
+  if(amount<=0){lcdShow("GAGAL","Nominal invalid");delay(1500);return;}
+  String body="{\"credential_id\":\""+credential+"\",\"amount\":"+String(amount)+
+              ",\"operator_pin\":\""+operatorPin+"\",\"member_pin\":\""+memberPin+
+              "\",\"idempotency_key\":\""+String(DEVICE_ID)+":deposit:"+seq+"\"}";
+  int code=0; String reply=postJson("/api/v1/cashier/deposits",body,code);
+  Serial.printf("TOPUP %d %s\n",code,reply.c_str());
+  if(code==200){ lcdShow("Topup Success","Rp."+String(amount)); delay(1800); }
+  else if(code==403){ lcdShow("Topup Gagal","PIN salah"); delay(1800); }
+  else { lcdShow("Topup Gagal","Server "+String(code)); delay(1800); }
+}
+
+void scanTopup(const String& operatorPin){
+  long amount=readCashierAmount();
+  if(amount<=0)return;
+  lcdShow("Topup","Tap kartu");
+  uint8_t uid[7]={0},len=0;
+  while(!card.readUID(uid,len)){ if(WiFi.status()!=WL_CONNECTED)connectWifi(); delay(20); }
+  String credential=uidToCredential(uid,len);
+  lcdShow("Kartu diterima","PIN:");
+  String memberPin=readKeyDigits("PIN:",true);
+  ++depositSequence;
+  cashierTopup(credential,amount,String(depositSequence),operatorPin,memberPin);
+  delay(700);
+}
+
 void scanCard(){
   if(!readerReady||paymentAmount<=0)return;
   uint8_t uid[7]={0},len=0;
@@ -114,13 +140,28 @@ long readCashierAmount(){
 void setup(){
   Serial.begin(115200); delay(300); connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
-  lcdShow("KASIR NVM","Masukkan nominal");
+  lcdShow("KASIR NVM","1 Bayar 2 Topup");
 }
 
 void loop(){
   if(WiFi.status()!=WL_CONNECTED)connectWifi();
   if(millis()-lastHeartbeat>=30000UL){lastHeartbeat=millis();heartbeat();}
-  if(paymentAmount<=0) paymentAmount=readCashierAmount();
-  if(paymentAmount>0) scanCard();
-  paymentAmount=0;
+  char mode=0;
+  while(!mode){
+    char k=nvmKeypad.getKey();
+    if(k=='1'||k=='2')mode=k;
+    delay(5);
+  }
+  if(mode=='1'){
+    lcdShow("Pembayaran","Nominal:");
+    paymentAmount=readCashierAmount();
+    if(paymentAmount>0)scanCard();
+    paymentAmount=0;
+  }else{
+    lcdShow("Topup","PIN Operator:");
+    String operatorPin=readKeyDigits("PIN Operator:",true);
+    lcdShow("Topup","Nominal:");
+    scanTopup(operatorPin);
+  }
+  lcdShow("KASIR NVM","1 Bayar 2 Topup");
 }
