@@ -1,4 +1,6 @@
 import sqlite3
+import hashlib
+import secrets
 from pathlib import Path
 from importlib.resources import files as resource_files
 
