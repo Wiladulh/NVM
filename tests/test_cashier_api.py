@@ -3,10 +3,11 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 import app.main as main
 
+
 def test_cashier_heartbeat_and_nfc_payment():
     with TemporaryDirectory() as d:
         old = main.get_settings
-        main.get_settings = lambda: type("S", (), {"db_path": Path(d) / "nvm.db"})()
+        main.get_settings = lambda: type("S", (), {"db_path": Path(d) / "nvm.db", "admin_token": "admin-secret"})()
         try:
             client = TestClient(main.create_app())
             with client.app.state.db.connect() as c:
@@ -15,24 +16,36 @@ def test_cashier_heartbeat_and_nfc_payment():
                 c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
                 c.execute("INSERT INTO financial_ledger(account_id,direction,amount,reference) VALUES('a1','credit',50000,'seed')")
                 c.commit()
-            assert client.post("/api/v1/members/m1/pin", json={"pin":"1234"}).status_code == 200
-            h = client.post("/api/v1/devices/cashier-01/heartbeat",
-                            json={"device_type":"esp32-cashier","status":"active"})
+
+            provision = client.post(
+                "/api/v1/devices/cashier-01/provision",
+                json={"device_type": "esp32-cashier"},
+                headers={"X-NVM-Admin-Token": "admin-secret"},
+            )
+            assert provision.status_code == 200
+            device_key = provision.json()["device_key"]
+
+            assert client.post("/api/v1/members/m1/pin", json={"pin": "1234"}).status_code == 200
+            h = client.post(
+                "/api/v1/devices/cashier-01/heartbeat",
+                json={"device_type": "esp32-cashier", "status": "active"},
+                headers={"X-NVM-Device-Key": device_key},
+            )
             assert h.status_code == 200
-            p = client.post("/api/v1/cashier/payments", json={
-                "device_id":"cashier-01","credential_id":"cred1","account_id":"a1",
-                "amount":10000,"method":"NFC","provider":"local",
-                "idempotency_key":"cashier-01:1","pin":"1234"
-            })
+
+            q = {
+                "device_id": "cashier-01", "credential_id": "cred1", "account_id": "a1",
+                "amount": 10000, "method": "NFC", "provider": "local",
+                "idempotency_key": "cashier-01:1", "pin": "1234"
+            }
+            p = client.post("/api/v1/cashier/payments", json=q, headers={"X-NVM-Device-Key": device_key})
             assert p.status_code == 200
             assert p.json()["device_id"] == "cashier-01"
-            again = client.post("/api/v1/cashier/payments", json={
-                "device_id":"cashier-01","credential_id":"cred1","account_id":"a1",
-                "amount":10000,"method":"NFC","provider":"local",
-                "idempotency_key":"cashier-01:1","pin":"1234"
-            })
+
+            again = client.post("/api/v1/cashier/payments", json=q, headers={"X-NVM-Device-Key": device_key})
             assert again.status_code == 200
             assert again.json()["transaction_id"] == p.json()["transaction_id"]
+
             with client.app.state.db.connect() as c:
                 assert c.execute("SELECT COUNT(*) FROM payment_transactions").fetchone()[0] == 1
                 assert c.execute("SELECT device_id FROM payment_transactions").fetchone()[0] == "cashier-01"
