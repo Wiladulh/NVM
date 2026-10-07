@@ -14,7 +14,7 @@ def create_app():
     app = FastAPI(title="NVM", version="0.1.0")
     app.state.settings = s
     app.state.db = db
-    app.include_router(build_router(db))
+    app.include_router(build_router(db, s))
 
     @app.get("/", response_class=HTMLResponse)
     def index():
