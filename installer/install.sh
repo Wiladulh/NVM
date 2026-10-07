@@ -1,29 +1,68 @@
 #!/bin/sh
 set -eu
 
-if [ "$(id -u)" -ne 0 ]; then
-  echo "Run installer as root."
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SOURCE_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+PYTHON=${NVM_PYTHON:-python3}
+MIN_CORES=2
+MIN_RAM_KB=$((315 * 1024))
+
+if ! command -v "$PYTHON" >/dev/null 2>&1; then
+  echo "Python 3.10+ is required."
   exit 1
 fi
 
-PREFIX=${NVM_PREFIX:-/opt/nvm}
-DATA=${NVM_DATA_DIR:-/var/lib/nvm}
-SERVICE_USER=${NVM_USER:-${SUDO_USER:-root}}
-SERVICE_GROUP=${NVM_GROUP:-${SERVICE_USER}}
+"$PYTHON" - <<'PY'
+import sys
+if sys.version_info < (3, 10):
+    raise SystemExit("Python 3.10+ is required.")
+PY
 
-python3 -m venv "$PREFIX/venv"
-"$PREFIX/venv/bin/pip" install --upgrade pip
-"$PREFIX/venv/bin/pip" install "$PWD"
+CORES=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 0)
+RAM_KB=$(awk '/MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || echo 0)
 
-mkdir -p "$DATA"
-chown -R "$SERVICE_USER:$SERVICE_GROUP" "$PREFIX" "$DATA" 2>/dev/null || true
+if [ "$CORES" -lt "$MIN_CORES" ]; then
+  echo "NVM requires at least ${MIN_CORES} CPU cores; detected ${CORES}."
+  exit 1
+fi
 
-install -m 0755 "$PWD/installer/nvm.initd" /etc/init.d/nvm
-if [ ! -f /etc/conf.d/nvm ]; then install -m 0600 "$PWD/installer/nvm.conf" /etc/conf.d/nvm; fi
-rc-update add nvm default 2>/dev/null || true
+if [ "$RAM_KB" -lt "$MIN_RAM_KB" ]; then
+  echo "NVM requires at least 315 MB RAM; detected ${RAM_KB} KB."
+  exit 1
+fi
 
-echo "NVM installed at $PREFIX"
+if [ "$(id -u)" -eq 0 ]; then
+  PREFIX=${NVM_PREFIX:-/opt/nvm}
+  DATA=${NVM_DATA_DIR:-/var/lib/nvm}
+else
+  PREFIX=${NVM_PREFIX:-"$HOME/.local/lib/nvm"}
+  DATA=${NVM_DATA_DIR:-"$HOME/.local/share/nvm"}
+fi
+
+mkdir -p "$PREFIX" "$DATA"
+"$PYTHON" -m venv "$PREFIX/venv"
+"$PREFIX/venv/bin/python" -m pip install --upgrade pip
+"$PREFIX/venv/bin/python" -m pip install "$SOURCE_DIR"
+
+mkdir -p "$PREFIX/bin"
+
+cat > "$PREFIX/bin/nvm" <<EOF
+#!/bin/sh
+exec "$PREFIX/venv/bin/nvm" "\\$@"
+EOF
+chmod 0755 "$PREFIX/bin/nvm"
+
+cat > "$PREFIX/bin/nvm-server" <<EOF
+#!/bin/sh
+set -eu
+exec "$PREFIX/venv/bin/uvicorn" app.main:app --host "\\${NVM_HOST:-127.0.0.1}" --port "\\${NVM_PORT:-8011}"
+EOF
+chmod 0755 "$PREFIX/bin/nvm-server"
+
+echo "NVM installed successfully."
+echo "Install prefix: $PREFIX"
 echo "Data directory: $DATA"
-echo "Set NVM_HOST=0.0.0.0 for LAN/ESP32 access."
-echo "Set NVM_ADMIN_TOKEN before provisioning ESP32 devices."
-echo "Start with: rc-service nvm start"
+echo "Server: $PREFIX/bin/nvm-server"
+echo "CLI: $PREFIX/bin/nvm"
+echo "For LAN/ESP32 access: NVM_HOST=0.0.0.0"
+echo "For device provisioning: set NVM_ADMIN_TOKEN"
