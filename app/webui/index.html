@@ -372,6 +372,7 @@ button:hover {
     <button class="tab-btn" onclick="switchTab('pembayaran')">Pembayaran</button>
     <button class="tab-btn" onclick="switchTab('vending')">Vending</button>
     <button class="tab-btn" onclick="switchTab('perangkat')">Perangkat</button>
+    <button class="tab-btn" onclick="switchTab('audit')">Audit & Backup</button>
   </nav>
 </div>
 
@@ -469,6 +470,53 @@ button:hover {
     </section>
   </div>
 
+  <div id="tab-audit" class="tab-pane">
+    <section class="section">
+      <h2>Audit Transaksi</h2>
+      <div class="hint">Audit terpisah untuk transaksi Cashier dan Vending. Filter tersedia per hari, minggu, atau bulan.</div>
+      <form id="auditForm">
+        <input id="adminToken" type="password" placeholder="Admin Token" required>
+        <select id="auditSource">
+          <option value="ALL">Semua</option>
+          <option value="CASHIER">Cashier</option>
+          <option value="VENDING">Vending</option>
+        </select>
+        <select id="auditPeriod">
+          <option value="day">Hari</option>
+          <option value="week">Minggu</option>
+          <option value="month">Bulan</option>
+        </select>
+        <input id="auditDate" type="date">
+        <button type="submit">Tampilkan Audit</button>
+      </form>
+      <div id="auditResult" class="scroll" style="margin-top:12px"></div>
+      <div class="grid" style="margin-top:12px">
+        <button type="button" id="auditExport">Export XLSX</button>
+      </div>
+    </section>
+    <section class="section">
+      <h2>Cashier Operator PIN</h2>
+      <div class="hint">PIN operator Cashier default awal adalah 9992. Ganti PIN di sini setelah instalasi.</div>
+      <form id="operatorPinForm">
+        <input id="newOperatorPin" type="password" inputmode="numeric" minlength="4" maxlength="6" placeholder="PIN baru" required>
+        <button>Ganti Operator PIN</button>
+      </form>
+      <div id="operatorPinResult" class="result"></div>
+    </section>
+    <section class="section">
+      <h2>Backup & Restore</h2>
+      <div class="hint">Backup native .nvm.zip adalah format pemulihan utama. XLSX digunakan untuk laporan/interchange.</div>
+      <div class="grid">
+        <button type="button" id="backupCreate">Buat Backup NVM</button>
+        <label class="check" style="padding:11px 14px;border:1px solid var(--line);border-radius:10px">
+          <input id="restoreFile" type="file" accept=".zip,.nvm.zip">
+        </label>
+        <button type="button" id="backupRestore">Restore Backup</button>
+      </div>
+      <div id="backupResult" class="result"></div>
+    </section>
+  </div>
+
   <!-- TAB 6: PERANGKAT -->
   <div id="tab-perangkat" class="tab-pane">
     <section class="section">
@@ -511,6 +559,54 @@ async function load(){
 $('financialForm').onsubmit=async e=>{e.preventDefault();const q={amount:+$('amount').value,reference:$('reference').value||null,idempotency_key:null};const{r,d}=await json('/api/v1/accounts/'+encodeURIComponent($('account').value)+'/'+$('direction').value,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});$('financialResult').textContent=JSON.stringify(d,null,2);if(r.ok)load()};
 $('paymentForm').onsubmit=async e=>{e.preventDefault();const q={credential_id:$('credential').value,account_id:$('payaccount').value,amount:+$('payamount').value,method:$('method').value,provider:$('provider').value||'local',idempotency_key:$('idem').value||null};const{r,d}=await json('/api/v1/payments',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(q)});$('paymentResult').textContent=JSON.stringify(d,null,2);if(r.ok)load()};
 $('productForm').onsubmit=async e=>{e.preventDefault();const mid=$('machineId').value.trim(),pid=$('productId').value.trim();const q={product_id:pid,name:$('productName').value.trim(),price:+$('productPrice').value,stock:+$('productStock').value,enabled:$('productEnabled').checked};const{r,d}=await json('/api/v1/vending/'+encodeURIComponent(mid)+'/products/'+encodeURIComponent(pid),{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(q)});$('productResult').textContent=JSON.stringify(d,null,2);if(r.ok)load()};
+async function adminToken(){const t=$('adminToken').value.trim();if(!t)throw new Error('Admin Token wajib diisi');return t}
+async function loadAudit(){
+  try{
+    const source=$('auditSource').value, period=$('auditPeriod').value, date=$('auditDate').value;
+    const q='?source='+encodeURIComponent(source)+'&period='+encodeURIComponent(period)+(date?'&date='+encodeURIComponent(date):'');
+    const {r,d}=await json('/api/v1/audit/report'+q);
+    $('auditResult').innerHTML=r.ok?table(d.transactions,['transaction_id','created_at','source','device_id','member_id','account_id','transaction_type','amount','status']):'<p class="hint" style="padding:16px">'+esc(d.detail||'Audit gagal')+'</p>';
+  }catch(e){$('auditResult').textContent=e.message}
+}
+$('auditForm').onsubmit=async e=>{e.preventDefault();await loadAudit()};
+$('auditExport').onclick=async()=>{
+  try{
+    const token=await adminToken();
+    const source=$('auditSource').value,period=$('auditPeriod').value,date=$('auditDate').value;
+    const q='?source='+encodeURIComponent(source)+'&period='+encodeURIComponent(period)+(date?'&date='+encodeURIComponent(date):'');
+    const r=await fetch('/api/v1/audit/export.xlsx'+q,{headers:{'X-NVM-Admin-Token':token}});
+    if(!r.ok)throw new Error('Export gagal: '+r.status);
+    const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nvm-audit-'+source.toLowerCase()+'-'+period+'.xlsx';a.click();URL.revokeObjectURL(a.href);
+  }catch(e){$('auditResult').textContent=e.message}
+};
+$('operatorPinForm').onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const token=await adminToken();
+    const {r,d}=await json('/api/v1/cashier/operator-pin',{method:'POST',headers:{'Content-Type':'application/json','X-NVM-Admin-Token':token},body:JSON.stringify({pin:$('newOperatorPin').value})});
+    $('operatorPinResult').textContent=JSON.stringify(d,null,2);
+    if(r.ok)$('newOperatorPin').value='';
+  }catch(e){$('operatorPinResult').textContent=e.message}
+};
+$('backupCreate').onclick=async()=>{
+  try{
+    const token=await adminToken(),r=await fetch('/api/v1/backup',{method:'POST',headers:{'X-NVM-Admin-Token':token}});
+    if(!r.ok)throw new Error('Backup gagal: '+r.status);
+    const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='NVM_BACKUP.nvm.zip';a.click();URL.revokeObjectURL(a.href);
+    $('backupResult').textContent='Backup berhasil dibuat.';
+  }catch(e){$('backupResult').textContent=e.message}
+};
+$('backupRestore').onclick=async()=>{
+  try{
+    const token=await adminToken(),file=$('restoreFile').files[0];
+    if(!file)throw new Error('Pilih file .nvm.zip terlebih dahulu');
+    if(!confirm('Restore akan mengganti database aktif. Lanjutkan?'))return;
+    const fd=new FormData();fd.append('file',file);
+    const {r,d}=await json('/api/v1/backup/restore',{method:'POST',headers:{'X-NVM-Admin-Token':token},body:fd});
+    $('backupResult').textContent=JSON.stringify(d,null,2);
+    if(r.ok)setTimeout(()=>location.reload(),1000);
+  }catch(e){$('backupResult').textContent=e.message}
+};
 load();
 </script>
 </body>
