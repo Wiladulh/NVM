@@ -10,7 +10,7 @@ def test_cashier_payment_requires_active_registered_device():
     with TemporaryDirectory() as d:
         old = main.get_settings
         db_path = Path(d) / "nvm.db"
-        main.get_settings = lambda: type("S", (), {"db_path": db_path})()
+        main.get_settings = lambda: type("S", (), {"db_path": db_path, "admin_token": "admin-secret"})()
         try:
             client = TestClient(main.create_app())
             with Database(db_path).connect() as c:
@@ -28,8 +28,7 @@ def test_cashier_payment_requires_active_registered_device():
                     "VALUES('member-account-01','credit',10000,'seed')"
                 )
 
-            pin = client.post("/api/v1/members/member-1/pin", json={"pin":"1234"})
-            assert pin.status_code == 200
+            assert client.post("/api/v1/members/member-1/pin", json={"pin": "1234"}).status_code == 200
 
             q = {
                 "device_id": "cashier-01",
@@ -41,15 +40,28 @@ def test_cashier_payment_requires_active_registered_device():
                 "idempotency_key": "cashier-01:1",
                 "pin": "1234",
             }
-            assert client.post("/api/v1/cashier/payments", json=q).status_code == 403
+            assert client.post("/api/v1/cashier/payments", json=q).status_code == 401
+
+            provision = client.post(
+                "/api/v1/devices/cashier-01/provision",
+                json={"device_type": "esp32-cashier"},
+                headers={"X-NVM-Admin-Token": "admin-secret"},
+            )
+            assert provision.status_code == 200
+            device_key = provision.json()["device_key"]
 
             hb = client.post(
                 "/api/v1/devices/cashier-01/heartbeat",
                 json={"device_type": "esp32-cashier", "status": "active"},
+                headers={"X-NVM-Device-Key": device_key},
             )
             assert hb.status_code == 200
 
-            payment = client.post("/api/v1/cashier/payments", json=q)
+            payment = client.post(
+                "/api/v1/cashier/payments",
+                json=q,
+                headers={"X-NVM-Device-Key": device_key},
+            )
             assert payment.status_code == 200
             assert payment.json()["status"] == "completed"
             assert payment.json()["device_id"] == "cashier-01"
