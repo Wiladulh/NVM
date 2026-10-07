@@ -23,7 +23,7 @@ def test_cashier_deposit_and_audit_are_separate_from_vending():
                 c.commit()
             assert client.post("/api/v1/members/m1/pin",json={"pin":"1234"}).status_code==200
             dep=client.post("/api/v1/cashier/deposits",
-                json={"credential_id":"cred1","amount":10500,"pin":"9992","idempotency_key":"dep-1"},
+                json={"credential_id":"cred1","amount":10500,"operator_pin":"9992","member_pin":"1234","idempotency_key":"dep-1"},
                 headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
             assert dep.status_code==200
             assert dep.json()["balance_after"]==10500
@@ -50,9 +50,9 @@ def test_operator_pin_can_be_changed_by_admin():
                 c.execute("INSERT INTO identity_credentials(credential_id,member_id,credential_type,status,enabled) VALUES('cred1','m1','nfc','active',1)")
                 c.execute("INSERT INTO device_registry(device_id,device_type,status,auth_key_hash) VALUES('cash-01','esp32-cashier','active',?)",(hashlib.sha256(b'cash-key').hexdigest(),))
                 c.commit()
-            ok=client.post("/api/v1/cashier/deposits",json={"credential_id":"cred1","amount":1000,"pin":"4321","idempotency_key":"dep-2"},headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
+            ok=client.post("/api/v1/cashier/deposits",json={"credential_id":"cred1","amount":1000,"operator_pin":"4321","member_pin":"1234","idempotency_key":"dep-2"},headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
             assert ok.status_code==200
-            bad=client.post("/api/v1/cashier/deposits",json={"credential_id":"cred1","amount":1000,"pin":"9992","idempotency_key":"dep-3"},headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
+            bad=client.post("/api/v1/cashier/deposits",json={"credential_id":"cred1","amount":1000,"operator_pin":"9992","member_pin":"1234","idempotency_key":"dep-3"},headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
             assert bad.status_code==403
         finally:
             main.get_settings=old
