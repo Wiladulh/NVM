@@ -141,3 +141,24 @@ def import_excel(db, source):
             imported["cashier"]=c.total_changes
         c.commit()
     return imported
+
+
+def export_rows_excel(rows, target):
+    if Workbook is None:
+        raise RuntimeError("openpyxl_required")
+    target=Path(target)
+    target.parent.mkdir(parents=True,exist_ok=True)
+    wb=Workbook()
+    ws=wb.active
+    ws.title="audit"
+    if rows:
+        headers=list(rows[0].keys())
+        ws.append(headers)
+        for row in rows:
+            ws.append([row.get(h) for h in headers])
+    else:
+        ws.append(["transaction_id","created_at","source","status","amount"])
+    ws.freeze_panes="A2"
+    ws.auto_filter.ref=ws.dimensions
+    wb.save(target)
+    return target
