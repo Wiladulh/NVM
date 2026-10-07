@@ -564,7 +564,8 @@ async function loadAudit(){
   try{
     const source=$('auditSource').value, period=$('auditPeriod').value, date=$('auditDate').value;
     const q='?source='+encodeURIComponent(source)+'&period='+encodeURIComponent(period)+(date?'&date='+encodeURIComponent(date):'');
-    const {r,d}=await json('/api/v1/audit/report'+q);
+    const token=await adminToken();
+    const {r,d}=await json('/api/v1/audit/report'+q,{headers:{'X-NVM-Admin-Token':token}});
     $('auditResult').innerHTML=r.ok?table(d.transactions,['transaction_id','created_at','source','device_id','member_id','account_id','transaction_type','amount','status']):'<p class="hint" style="padding:16px">'+esc(d.detail||'Audit gagal')+'</p>';
   }catch(e){$('auditResult').textContent=e.message}
 }
