@@ -354,7 +354,11 @@ def build_router(db, app_settings=None):
             require_device(q.device_id,x_nvm_device_key)
             if q.method!="NFC":raise HTTPException(400,"cashier_requires_nfc")
             if q.provider!="local":raise HTTPException(400,"invalid_nfc_provider")
-            return payments.pay(**q.model_dump())
+            result=payments.pay(**q.model_dump())
+            with db.connect() as c:
+                c.execute("UPDATE payment_transactions SET transaction_source='CASHIER' WHERE transaction_id=?",(result["transaction_id"],))
+                c.commit()
+            return result
         except PermissionError as e:raise HTTPException(403,str(e))
         except ValueError as e:
             code=str(e)
