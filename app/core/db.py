@@ -24,6 +24,44 @@ class Database:
 
         with self.connect() as c:
             for path in paths:
+                if path.name == "013_feature_foundation.sql":
+                    marker = c.execute(
+                        "SELECT value FROM system_meta WHERE key='f01_schema_extension_version'"
+                    ).fetchone()
+                    if marker and marker[0] == "001":
+                        continue
+
+                    member_columns = {row[1] for row in c.execute("PRAGMA table_info(identity_members)")}
+                    for name, definition in {
+                        "nik": "TEXT",
+                        "address": "TEXT",
+                        "deleted_at": "TEXT",
+                    }.items():
+                        if name not in member_columns:
+                            c.execute(f"ALTER TABLE identity_members ADD COLUMN {name} {definition}")
+
+                    c.execute(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ux_member_nik_active "
+                        "ON identity_members(nik) "
+                        "WHERE nik IS NOT NULL AND deleted_at IS NULL"
+                    )
+                    c.execute(
+                        "CREATE INDEX IF NOT EXISTS ix_member_status "
+                        "ON identity_members(status)"
+                    )
+
+                    device_columns = {row[1] for row in c.execute("PRAGMA table_info(device_registry)")}
+                    if "deleted_at" not in device_columns:
+                        c.execute("ALTER TABLE device_registry ADD COLUMN deleted_at TEXT")
+                    c.execute(
+                        "CREATE INDEX IF NOT EXISTS ix_device_status "
+                        "ON device_registry(status)"
+                    )
+                    c.execute(
+                        "CREATE INDEX IF NOT EXISTS ix_device_deleted "
+                        "ON device_registry(deleted_at)"
+                    )
+
                 if path.name == "011_nfc_payment_hardening.sql":
                     marker = c.execute(
                         "SELECT value FROM system_meta WHERE key='nfc_payment_architecture_version'"
