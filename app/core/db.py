@@ -219,6 +219,19 @@ class Database:
                 c.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_vending_machines_machine_id ON vending_machines(machine_id)")
 
             columns = {row[1] for row in c.execute("PRAGMA table_info(payment_transactions)")}
+            if "transaction_source" not in columns:
+                c.execute("ALTER TABLE payment_transactions ADD COLUMN transaction_source TEXT NOT NULL DEFAULT 'WEBUI'")
+            vending_cols = {row[1] for row in c.execute("PRAGMA table_info(vending_transactions)")}
+            if "transaction_source" not in vending_cols:
+                c.execute("ALTER TABLE vending_transactions ADD COLUMN transaction_source TEXT NOT NULL DEFAULT 'VENDING'")
+            c.execute("CREATE INDEX IF NOT EXISTS ix_payment_source_created ON payment_transactions(transaction_source,created_at)")
+            c.execute("CREATE INDEX IF NOT EXISTS ix_vending_source_created ON vending_transactions(transaction_source,created_at)")
+            c.execute("INSERT OR IGNORE INTO system_meta(key,value) VALUES('transaction_retention_months','12')")
+            pin_row = c.execute("SELECT value FROM system_meta WHERE key='cashier_operator_pin_hash'").fetchone()
+            if not pin_row or not pin_row["value"]:
+                salt=secrets.token_hex(16)
+                digest=hashlib.pbkdf2_hmac("sha256",b"9992",salt.encode(),120000).hex()
+                c.execute("INSERT OR REPLACE INTO system_meta(key,value) VALUES('cashier_operator_pin_hash',?)",(salt+":"+digest,))
             additions = {
                 "method": "TEXT NOT NULL DEFAULT 'NFC'",
                 "provider": "TEXT NOT NULL DEFAULT 'local'",
