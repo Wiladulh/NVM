@@ -2,463 +2,57 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NVM Dashboard — Demo Preview</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NVM — Demo Preview</title>
 <style>
-:root{
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
-  --accent: #0284c7;
-  --accent-hover: #0369a1;
-  --good: #10b981;
-  --bad: #ef4444;
-  --header-bg: #0f172a;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-}
-
-*{box-sizing:border-box}
-
-body {
-  margin: 0;
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.5;
-}
-
-header {
-  background: var(--header-bg);
-  color: #fff;
-  padding: 20px 16px;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-
-header .top {
-  max-width: 1200px;
-  margin: auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-
-.sub {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 2px;
-  font-weight: 500;
-}
-
-.status {
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  padding: 6px 12px;
-  border-radius: 30px;
-  font-weight: 600;
-  backdrop-filter: blur(4px);
-}
-
-nav {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 12px 16px;
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-nav::-webkit-scrollbar {
-  display: none;
-}
-
-nav a {
-  white-space: nowrap;
-  text-decoration: none;
-  color: var(--muted);
-  background: var(--card);
-  border: 1px solid var(--line);
-  padding: 8px 16px;
-  border-radius: 30px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow);
-}
-
-nav a:hover, nav a:focus {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: #f0f9ff;
-}
-
-main {
-  max-width: 1200px;
-  margin: auto;
-  padding: 8px 16px 40px;
-}
-
-.section {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 20px;
-  margin: 16px 0;
-  box-shadow: var(--shadow);
-  transition: transform 0.2s ease;
-}
-
-h2 {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 12px;
-  color: #1e293b;
-  letter-spacing: -0.3px;
-}
-
-.hint {
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 12px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-}
-
-.card {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px;
-  background: #f8fafc;
-  transition: all 0.2s ease;
-}
-
-.card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-}
-
-.label {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.value {
-  font-size: 24px;
-  font-weight: 800;
-  margin-top: 6px;
-  color: #0f172a;
-}
-
-.scroll {
-  overflow-x: auto;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  background: #fff;
-}
-
-th, td {
-  text-align: left;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-  white-space: nowrap;
-}
-
-th {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: #f8fafc;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-tr:hover td {
-  background: #f8fafc;
-}
-
-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-  align-items: center;
-  margin-top: 10px;
-}
-
-input, select, button {
-  width: 100%;
-  padding: 11px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  font: inherit;
-  font-size: 13px;
-  background: #fff;
-  color: var(--text);
-  transition: all 0.2s ease;
-}
-
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
-}
-
-button {
-  background: var(--accent);
-  color: #fff;
-  border: 0;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
-}
-
-button:hover {
-  background: var(--accent-hover);
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.check input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-}
-
-.result {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #f1f5f9;
-  border: 1px solid var(--line);
-  font-size: 12px;
-  font-family: monospace;
-  white-space: pre-wrap;
-  overflow-x: auto;
-  color: #334155;
-}
-
-.hidden {
-  display: none;
-}
-
-@media(max-width: 600px) {
-  header { padding: 16px 12px; }
-  .brand { font-size: 17px; }
-  main { padding: 4px 8px 30px; }
-  .section { padding: 14px; margin: 10px 0; border-radius: 12px; }
-  .grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .card { padding: 12px; }
-  .value { font-size: 20px; }
-  th, td { padding: 10px; }
-}
+:root{--bg:#090d16;--card:#111827cc;--text:#f3f4f6;--muted:#9ca3af;--line:#ffffff14;--a:#38bdf8;--g:#34d399}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top right,#1e1b4b,#090d16);background-attachment:fixed;color:var(--text);line-height:1.55}
+header{position:sticky;top:0;z-index:20;background:#090d16ee;backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:13px 16px}.top,main{max-width:1200px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{font-weight:800;color:var(--a)}.sub,.hint{font-size:12px;color:var(--muted)}.status{font-size:11px;color:var(--g);border:1px solid #34d39955;padding:4px 10px;border-radius:20px}
+.nav{position:sticky;top:58px;z-index:15;background:#090d16e8;border-bottom:1px solid var(--line);overflow:auto;white-space:nowrap}.nav-inner{max-width:1200px;margin:auto;display:flex;gap:8px;padding:10px 16px}
+button{border:1px solid var(--line);background:#ffffff08;color:var(--muted);padding:9px 13px;border-radius:10px;font-weight:700;cursor:pointer}.tab.active,button.primary{background:linear-gradient(135deg,#38bdf8,#2563eb);color:#090d16;border:0}
+main{padding:16px}.pane{display:none}.pane.active{display:block}.section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:15px;box-shadow:0 10px 30px -10px #0008}
+h2{font-size:16px;margin:0 0 5px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}.card{border:1px solid var(--line);border-radius:13px;padding:14px;background:#ffffff04}.label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}.value{font-size:22px;font-weight:800;margin-top:4px}
+.scroll{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-size:10px;text-transform:uppercase;background:#0005}tr:last-child td{border:0}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin-top:12px}input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#0006;color:var(--text)}input:focus,select:focus{outline:0;border-color:var(--a)}.result{margin-top:11px;padding:11px;border:1px solid var(--line);border-radius:9px;background:#0006;color:var(--a);font:11px monospace;white-space:pre-wrap}.check{display:flex;align-items:center;gap:7px;font-size:12px}.check input{width:auto}.notice{padding:10px 12px;border-radius:9px;background:#38bdf810;border:1px solid #38bdf833;color:#bae6fd;font-size:12px}
+@media(max-width:600px){main{padding:10px}.section{padding:14px}.brand{font-size:14px}}
 </style>
 </head>
 <body>
-
-<header>
-  <div class="top">
-    <div>
-      <div class="brand">NVM — Natura Vending Machine</div>
-      <div class="sub">Dashboard Koperasi & Micro-Banking (Demo Mode)</div>
-    </div>
-    <div id="status" class="status">● demo-active</div>
-  </div>
-</header>
-
-<nav>
-  <a href="#ringkasan">Ringkasan</a>
-  <a href="#keuangan">Keuangan</a>
-  <a href="#anggota">Anggota</a>
-  <a href="#pembayaran">Pembayaran</a>
-  <a href="#vending">Vending</a>
-  <a href="#perangkat">Perangkat</a>
-</nav>
-
+<header><div class="top"><div><div class="brand">NVM — Natura Vending Machine</div><div class="sub">WebUI Preview • Demo Mode</div></div><div class="status">● demo-active</div></div></header>
+<div class="nav"><div class="nav-inner">
+<button class="tab active" data-tab="ringkasan">Ringkasan</button><button class="tab" data-tab="keuangan">Keuangan</button><button class="tab" data-tab="anggota">Anggota</button><button class="tab" data-tab="pembayaran">Pembayaran</button><button class="tab" data-tab="vending">Vending</button><button class="tab" data-tab="perangkat">Perangkat</button><button class="tab" data-tab="audit">Audit & Backup</button>
+</div></div>
 <main>
-  <section id="ringkasan" class="section">
-    <h2>Ringkasan</h2>
-    <div id="summary" class="grid"></div>
-  </section>
-
-  <section id="keuangan" class="section">
-    <h2>Saldo & Rekening</h2>
-    <div id="accounts" class="scroll"></div>
-  </section>
-
-  <section class="section">
-    <h2>Deposit / Penarikan</h2>
-    <div class="hint">Gunakan Account ID anggota. (Mode Demo: Simulasi lokal)</div>
-    <form id="financialForm">
-      <input id="account" placeholder="Account ID" required value="ACC-001">
-      <input id="amount" type="number" min="1" placeholder="Jumlah (Rp)" required value="50000">
-      <select id="direction">
-        <option value="credit">Deposit / Kredit</option>
-        <option value="debit">Penarikan / Debit</option>
-      </select>
-      <input id="reference" placeholder="Referensi" value="Simulasi Demo">
-      <button>Proses</button>
-    </form>
-    <div id="financialResult" class="result">Klik tombol 'Proses' untuk melihat respons simulasi.</div>
-  </section>
-
-  <section id="anggota" class="section">
-    <h2>Anggota</h2>
-    <div id="members" class="scroll"></div>
-  </section>
-
-  <section id="pembayaran" class="section">
-    <h2>Pembayaran NFC / QRIS</h2>
-    <div class="hint">NFC, QRIS, dan CASH menggunakan payment core yang sama.</div>
-    <form id="paymentForm">
-      <input id="credential" placeholder="Credential ID" required value="NFC-998877">
-      <input id="payaccount" placeholder="Account ID" required value="ACC-001">
-      <input id="payamount" type="number" min="1" placeholder="Jumlah" required value="15000">
-      <select id="method">
-        <option>NFC</option>
-        <option>QRIS</option>
-        <option>CASH</option>
-      </select>
-      <input id="provider" placeholder="Provider" value="local">
-      <input id="idem" placeholder="Idempotency key" value="idem-demo-01">
-      <button>Bayar</button>
-    </form>
-    <div id="paymentResult" class="result">Klik tombol 'Bayar' untuk melihat respons simulasi.</div>
-  </section>
-
-  <section class="section">
-    <h2>Transaksi Pembayaran</h2>
-    <div id="payments" class="scroll"></div>
-  </section>
-
-  <section class="section">
-    <h2>Pinjaman</h2>
-    <div id="loans" class="scroll"></div>
-  </section>
-
-  <section id="vending" class="section">
-    <h2>Vending / Machine</h2>
-    <div id="machines" class="scroll"></div>
-  </section>
-
-  <section class="section">
-    <h2>Inventory Produk</h2>
-    <div id="products" class="scroll"></div>
-    <form id="productForm" style="margin-top:14px">
-      <input id="machineId" placeholder="Machine ID" required value="VM-01">
-      <input id="productId" placeholder="Product ID" required value="P-003">
-      <input id="productName" placeholder="Nama produk" required value="Kopi Hitam NVM">
-      <input id="productPrice" type="number" min="1" placeholder="Harga" required value="6000">
-      <input id="productStock" type="number" min="0" placeholder="Stok" required value="25">
-      <label class="check">
-        <input id="productEnabled" type="checkbox" checked> Aktif
-      </label>
-      <button>Simpan Produk</button>
-    </form>
-    <div id="productResult" class="result">Klik 'Simpan Produk' untuk melihat respons simulasi.</div>
-  </section>
-
-  <section id="perangkat" class="section">
-    <h2>Perangkat</h2>
-    <div id="devices" class="scroll"></div>
-  </section>
+<div id="ringkasan" class="pane active"><section class="section"><h2>Ringkasan</h2><div id="summary" class="grid"></div></section></div>
+<div id="keuangan" class="pane"><section class="section"><h2>Saldo & Rekening</h2><div id="accounts" class="scroll"></div></section><section class="section"><h2>Deposit / Penarikan</h2><div class="hint">Simulasi lokal — tidak mengubah database server.</div><form id="financial"><input id="acc" value="ACC-001" placeholder="Account ID"><input id="amt" type="number" value="50000" placeholder="Jumlah"><select id="dir"><option>credit</option><option>debit</option></select><input id="ref" value="DEMO-001" placeholder="Referensi"><button class="primary">Proses</button></form><div id="finres" class="result">Menunggu aksi.</div></section><section class="section"><h2>Pinjaman</h2><div id="loans" class="scroll"></div></section></div>
+<div id="anggota" class="pane"><section class="section"><h2>Anggota</h2><div id="members" class="scroll"></div></section></div>
+<div id="pembayaran" class="pane"><section class="section"><h2>Pembayaran NFC / QRIS</h2><div class="hint">Preview payment core. QRIS hanya UI foundation; provider tetap ditunda.</div><form id="payment"><input id="cred" value="test-credential-01" placeholder="Credential ID"><input id="pacc" value="ACC-001" placeholder="Account ID"><input id="pamt" type="number" value="10000" placeholder="Jumlah"><select id="method"><option>NFC</option><option>QRIS</option></select><input id="idem" value="DEMO-PAY-001" placeholder="Idempotency key"><button class="primary">Bayar</button></form><div id="payres" class="result">Menunggu aksi.</div></section><section class="section"><h2>Transaksi</h2><div id="payments" class="scroll"></div></section></div>
+<div id="vending" class="pane"><section class="section"><h2>Vending / Machine</h2><div id="machines" class="scroll"></div></section><section class="section"><h2>Inventory Produk</h2><div id="products" class="scroll"></div><form id="product"><input id="mid" value="VM-01" placeholder="Machine ID"><input id="pid" value="P-003" placeholder="Product ID"><input id="pname" value="Kopi Hitam NVM" placeholder="Nama produk"><input id="price" type="number" value="6000" placeholder="Harga"><input id="stock" type="number" value="25" placeholder="Stok"><button class="primary">Simpan Produk</button></form><div id="prodres" class="result">Simulasi saja.</div></section></div>
+<div id="perangkat" class="pane"><section class="section"><h2>Perangkat</h2><div id="devices" class="scroll"></div></section></div>
+<div id="audit" class="pane"><section class="section"><h2>Audit Transaksi</h2><div class="hint">Cashier dan Vending dapat diaudit terpisah. Filter: hari / minggu / bulan.</div><form id="audit"><input id="token" type="password" placeholder="Admin Token"><select id="source"><option>ALL</option><option>CASHIER</option><option>VENDING</option></select><select id="period"><option>day</option><option>week</option><option>month</option></select><input id="date" type="date"><button class="primary">Tampilkan Audit</button></form><div id="auditres" class="scroll" style="margin-top:11px"></div><button id="export" style="margin-top:10px">Export XLSX (Demo)</button></section><section class="section"><h2>Cashier Operator PIN</h2><div class="hint">Default awal server: 9992. Demo tidak mengubah server.</div><form id="op"><input id="pin" type="password" placeholder="PIN baru" maxlength="6"><button class="primary">Ganti Operator PIN</button></form><div id="opres" class="result">Menunggu aksi.</div></section><section class="section"><h2>Backup & Restore</h2><div class="notice">Native <b>.nvm.zip</b> adalah recovery utama. XLSX untuk laporan/interchange.</div><div class="grid" style="margin-top:11px"><button id="backup" class="primary">Buat Backup NVM</button><label class="check"><input id="file" type="file" accept=".zip,.nvm.zip"> Pilih backup</label><button id="restore">Restore Backup</button></div><div id="backupres" class="result">Menunggu aksi.</div></section></div>
 </main>
-
 <script>
-const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('id-ID').format(Number(n)||0);
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function table(rows,cols){if(!rows?.length)return '<p class="hint" style="padding:16px;">Belum ada data.</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
-
-// MOCK DATA UNTUK PREVIEW DEMO
-const mockData = {
-  members: [
-    { member_id: "NVM-MEMBER-01", name: "Budi Santoso", status: "active", created_at: "2026-01-10" },
-    { member_id: "NVM-MEMBER-02", name: "Siti Aminah", status: "active", created_at: "2026-01-12" },
-    { member_id: "NVM-MEMBER-03", name: "Joko Widodo", status: "active", created_at: "2026-02-01" }
-  ],
-  accounts: [
-    { account_id: "ACC-001", member_name: "Budi Santoso", account_type: "savings", balance: 1250000, status: "active" },
-    { account_id: "ACC-002", member_name: "Siti Aminah", account_type: "savings", balance: 750000, status: "active" }
-  ],
-  payments: [
-    { transaction_id: "TXN-8812", account_id: "ACC-001", amount: 10000, method: "NFC", provider: "local", device_id: "ESP32-DEV-01", status: "success", created_at: "2026-10-06 10:15" },
-    { transaction_id: "TXN-8813", account_id: "ACC-002", amount: 5000, method: "QRIS", provider: "local", device_id: "ESP32-DEV-02", status: "success", created_at: "2026-10-06 11:20" }
-  ],
-  loans: [
-    { loan_id: "LOAN-01", member_id: "NVM-MEMBER-01", principal: 500000, installment_amount: 55000, remaining_balance: 440000, status: "running" }
-  ],
-  machines: [
-    { machine_id: "VM-01", name: "Vending Utama Desa", status: "online", last_seen: "Baru saja" },
-    { machine_id: "VM-02", name: "Vending Pos Satpam", status: "online", last_seen: "1 menit lalu" }
-  ],
-  products: [
-    { product_id: "P-001", machine_id: "VM-01", name: "Teh Botol Kotak", price: 4000, stock: 18, enabled: true },
-    { product_id: "P-002", machine_id: "VM-01", name: "Roti Keju Lezat", price: 5000, stock: 12, enabled: true }
-  ],
-  devices: [
-    { device_id: "ESP32-DEV-01", device_type: "NFC Reader", status: "online", last_seen: "Baru saja" },
-    { device_id: "ESP32-DEV-02", device_type: "Vending Controller", status: "online", last_seen: "Baru saja" }
-  ]
-};
-
-function load(){
-  $('status').textContent='● online (demo)';
-  const d = mockData;
-  $('summary').innerHTML=[['Anggota',d.members.length],['Rekening',d.accounts.length],['Pembayaran',d.payments.length],['Pinjaman',d.loans.length],['Vending',d.machines.length],['Perangkat',d.devices.length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
-  $('accounts').innerHTML=table(d.accounts.map(x=>({...x,balance:money(x.balance)})),['account_id','member_name','account_type','balance','status']);
-  $('members').innerHTML=table(d.members,['member_id','name','status','created_at']);
-  $('payments').innerHTML=table(d.payments.map(x=>({...x,amount:money(x.amount)})),['transaction_id','account_id','amount','method','provider','device_id','status','created_at']);
-  $('loans').innerHTML=table(d.loans.map(x=>({...x,principal:money(x.principal),installment_amount:money(x.installment_amount),remaining_balance:money(x.remaining_balance)})),['loan_id','member_id','principal','installment_amount','remaining_balance','status']);
-  $('machines').innerHTML=table(d.machines,['machine_id','name','status','last_seen']);
-  $('products').innerHTML=table(d.products.map(x=>({...x,price:money(x.price),enabled:x.enabled?'yes':'no'})),['product_id','machine_id','name','price','stock','enabled']);
-  $('devices').innerHTML=table(d.devices,['device_id','device_type','status','last_seen']);
-}
-
-// Simulasi aksi form di demo mode
-$('financialForm').onsubmit=e=>{e.preventDefault();$('financialResult').textContent=JSON.stringify({status:"success",message:"Simulasi deposit/penarikan berhasil dicatat",account:$('account').value,amount:+($('amount').value),direction:$('direction').value},null,2);};
-$('paymentForm').onsubmit=e=>{e.preventDefault();$('paymentResult').textContent=JSON.stringify({status:"success",transaction_id:"TXN-SIMULATED-99",credential_id:$('credential').value,account_id:$('payaccount').value,amount:+($('payamount').value),method:$('method').value},null,2);};
-$('productForm').onsubmit=e=>{e.preventDefault();$('productResult').textContent=JSON.stringify({status:"success",message:"Simulasi update produk berhasil",machine_id:$('machineId').value,product_id:$('productId').value,name:$('productName').value,price:+($('productPrice').value),stock:+($('productStock').value)},null,2);};
-
-load();
+const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('id-ID').format(n);
+const data={members:[['NVM-MEMBER-01','Budi Santoso','active'],['NVM-MEMBER-02','Siti Aminah','active'],['NVM-MEMBER-03','Joko','active']],accounts:[['ACC-001','Budi Santoso','savings',1250000,'active'],['ACC-002','Siti Aminah','savings',750000,'active']],payments:[['TXN-8812','ACC-001',10000,'NFC','CASHIER','success'],['TXN-8813','ACC-002',5000,'NFC','CASHIER','success'],['VTX-2201','ACC-001',6000,'NFC','VENDING','success']],loans:[['LOAN-01','NVM-MEMBER-01',500000,55000,440000,'running']],machines:[['VM-01','Vending Utama','online','baru saja'],['VM-02','Vending Pos','online','1 menit lalu']],products:[['P-001','VM-01','Teh Botol',4000,18,'yes'],['P-002','VM-01','Roti Keju',5000,12,'yes'],['P-003','VM-01','Kopi Hitam',6000,25,'yes']],devices:[['ESP32-CASH-01','esp32-cashier','online','baru saja'],['ESP32-VEND-01','esp32-vending','online','baru saja']]};
+function table(head,rows,fmt=[]){return '<table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map((x,i)=>'<td>'+((fmt[i]||((v)=>v))(x))+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+const rp=x=>money(x);
+$('summary').innerHTML=[['Anggota',3],['Rekening',2],['Pembayaran',3],['Pinjaman',1],['Vending',2],['Perangkat',2]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+$('accounts').innerHTML=table(['Account','Member','Type','Balance','Status'],data.accounts,[null,null,null,rp,null]);
+$('members').innerHTML=table(['Member ID','Nama','Status'],data.members);
+$('payments').innerHTML=table(['Transaction','Account','Amount','Method','Source','Status'],data.payments,[null,null,rp]);
+$('loans').innerHTML=table(['Loan','Member','Principal','Installment','Remaining','Status'],data.loans,[null,null,rp,rp,rp]);
+$('machines').innerHTML=table(['Machine','Nama','Status','Last Seen'],data.machines);
+$('products').innerHTML=table(['Product','Machine','Nama','Harga','Stock','Enabled'],data.products,[null,null,null,rp]);
+$('devices').innerHTML=table(['Device','Type','Status','Last Seen'],data.devices);
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active');scrollTo({top:0,behavior:'smooth'})});
+$('financial').onsubmit=e=>{e.preventDefault();$('finres').textContent=JSON.stringify({status:'success',mode:'DEMO',account_id:$('acc').value,amount:+$('amt').value,direction:$('dir').value,reference:$('ref').value},null,2)};
+$('payment').onsubmit=e=>{e.preventDefault();$('payres').textContent=JSON.stringify({status:'success',mode:'DEMO',transaction_id:'DEMO-TXN-001',credential_id:$('cred').value,amount:+$('pamt').value,method:$('method').value,idempotency_key:$('idem').value},null,2)};
+$('product').onsubmit=e=>{e.preventDefault();$('prodres').textContent=JSON.stringify({status:'success',mode:'DEMO',machine_id:$('mid').value,product_id:$('pid').value,name:$('pname').value,price:+$('price').value,stock:+$('stock').value},null,2)};
+$('audit').onsubmit=e=>{e.preventDefault();$('auditres').innerHTML=table(['Transaction','Source','Device','Amount','Status'],data.payments.filter(r=>$('source').value==='ALL'||r[4]===$('source').value),[null,null,v=>'ESP32-'+(v==='CASHIER'?'CASH':'VEND'),rp])};
+$('export').onclick=()=>{$('auditres').innerHTML='<div class="notice">Demo: XLSX tidak dibuat di GitHub Pages. WebUI server akan memanggil <b>/api/v1/audit/export.xlsx</b>.</div>'};
+$('op').onsubmit=e=>{e.preventDefault();$('opres').textContent=JSON.stringify({status:'success',mode:'DEMO',message:'Operator PIN simulasi diperbarui'},null,2)};
+$('backup').onclick=()=>{$('backupres').textContent='Demo: server WebUI akan membuat NVM_BACKUP.nvm.zip melalui /api/v1/backup.'};
+$('restore').onclick=()=>{if(!$('file').files[0]){$('backupres').textContent='Pilih file .nvm.zip terlebih dahulu.';return}$('backupres').textContent='Demo: server WebUI akan melakukan restore atomik setelah konfirmasi admin.'};
 </script>
 </body>
 </html>
