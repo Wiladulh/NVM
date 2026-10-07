@@ -57,3 +57,29 @@ def test_operator_pin_can_be_changed_by_admin():
             assert bad.status_code==403
         finally:
             main.get_settings=old
+
+
+def test_native_restore_replaces_database_atomically():
+    from app.core.backup import create_native_backup, restore_native_backup
+    with TemporaryDirectory() as d:
+        old=main.get_settings
+        root=Path(d)
+        main.get_settings=lambda: type("S",(),{
+            "db_path":root/"nvm.db","data_dir":root,"admin_token":"admin-secret"
+        })()
+        try:
+            app=main.create_app()
+            with app.state.db.connect() as db:
+                db.execute("INSERT INTO identity_members(member_id,name) VALUES('restore-member','Before')")
+                db.commit()
+            archive=root/"backup.nvm.zip"
+            create_native_backup(app.state.db,archive,include_excel=False)
+            with app.state.db.connect() as db:
+                db.execute("INSERT INTO identity_members(member_id,name) VALUES('live-only','Should disappear')")
+                db.commit()
+            restore_native_backup(app.state.db,archive)
+            with app.state.db.connect() as db:
+                assert db.execute("SELECT 1 FROM identity_members WHERE member_id='restore-member'").fetchone()
+                assert db.execute("SELECT 1 FROM identity_members WHERE member_id='live-only'").fetchone() is None
+        finally:
+            main.get_settings=old
