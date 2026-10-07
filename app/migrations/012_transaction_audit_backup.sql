@@ -1,4 +1,5 @@
--- Transaction separation, cashier deposits, operator PIN, and retention metadata
+-- Schema 012 is applied idempotently by Database.migrate() because SQLite
+-- does not support ADD COLUMN IF NOT EXISTS on all supported versions.
 CREATE TABLE IF NOT EXISTS cashier_deposits(
     transaction_id TEXT PRIMARY KEY,
     device_id TEXT NOT NULL,
@@ -16,12 +17,3 @@ CREATE TABLE IF NOT EXISTS cashier_deposits(
 CREATE INDEX IF NOT EXISTS ix_cashier_deposit_created ON cashier_deposits(created_at);
 CREATE INDEX IF NOT EXISTS ix_cashier_deposit_device ON cashier_deposits(device_id,created_at);
 CREATE INDEX IF NOT EXISTS ix_cashier_deposit_member ON cashier_deposits(member_id,created_at);
-
-ALTER TABLE payment_transactions ADD COLUMN transaction_source TEXT NOT NULL DEFAULT 'WEBUI';
-ALTER TABLE vending_transactions ADD COLUMN transaction_source TEXT NOT NULL DEFAULT 'VENDING';
-
-CREATE INDEX IF NOT EXISTS ix_payment_source_created ON payment_transactions(transaction_source,created_at);
-CREATE INDEX IF NOT EXISTS ix_vending_source_created ON vending_transactions(transaction_source,created_at);
-
-INSERT OR IGNORE INTO system_meta(key,value) VALUES('cashier_operator_pin_hash','');
-INSERT OR IGNORE INTO system_meta(key,value) VALUES('transaction_retention_months','12');
