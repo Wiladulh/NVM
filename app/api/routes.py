@@ -77,7 +77,8 @@ class VendingDispenseRequest(BaseModel):
 class CashierDepositRequest(BaseModel):
     credential_id: str
     amount: int
-    pin: str
+    operator_pin: str
+    member_pin: str
     idempotency_key: str
 
 class OperatorPinRequest(BaseModel):
@@ -323,13 +324,18 @@ def build_router(db, app_settings=None):
     def cashier_deposit(q:CashierDepositRequest,x_nvm_device_key: str | None = Header(default=None),x_nvm_device_id: str | None = Header(default=None)):
         if not x_nvm_device_id: raise HTTPException(400,"device_id_required")
         require_device(x_nvm_device_id,x_nvm_device_key)
-        if not verify_operator_pin(q.pin): raise HTTPException(403,"invalid_operator_pin")
+        if not verify_operator_pin(q.operator_pin): raise HTTPException(403,"invalid_operator_pin")
         if not q.idempotency_key: raise HTTPException(400,"idempotency_key_required")
         if not isinstance(q.amount,int) or q.amount<=0: raise HTTPException(400,"amount_must_be_positive_integer")
         auth=identity.authorize_credential(q.credential_id)
         if not auth["authorized"]: raise HTTPException(403,auth["reason"])
         account=identity.account_for_credential(q.credential_id)
         if not account["authorized"]: raise HTTPException(404,account["reason"])
+        try:
+            pin_ok=identity.verify_credential_pin(q.credential_id,q.member_pin)
+        except PermissionError as e:
+            raise HTTPException(403,str(e))
+        if not pin_ok: raise HTTPException(403,"invalid_pin")
         with db.connect() as c:
             old=c.execute("SELECT * FROM cashier_deposits WHERE idempotency_key=?",(q.idempotency_key,)).fetchone()
         if old: return dict(old)
