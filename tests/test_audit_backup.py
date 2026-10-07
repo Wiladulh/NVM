@@ -1,0 +1,58 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from fastapi.testclient import TestClient
+import hashlib
+import app.main as main
+
+def test_cashier_deposit_and_audit_are_separate_from_vending():
+    with TemporaryDirectory() as d:
+        old=main.get_settings
+        main.get_settings=lambda: type("S",(),{
+            "db_path":Path(d)/"nvm.db","data_dir":Path(d),"admin_token":"admin-secret"
+        })()
+        try:
+            client=TestClient(main.create_app())
+            with client.app.state.db.connect() as c:
+                c.execute("INSERT INTO identity_members(member_id,name) VALUES('m1','Member')")
+                c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
+                c.execute("INSERT INTO identity_credentials(credential_id,member_id,credential_type,status,enabled) VALUES('cred1','m1','nfc','active',1)")
+                c.execute("INSERT INTO device_registry(device_id,device_type,status,auth_key_hash) VALUES('cash-01','esp32-cashier','active',?)",(hashlib.sha256(b'cash-key').hexdigest(),))
+                c.execute("INSERT INTO vending_machines(machine_id,name,status,device_id) VALUES('v1','V1','active','vend-01')")
+                c.execute("INSERT INTO vending_products(product_id,machine_id,name,price,stock) VALUES('p1','v1','P1',5000,1)")
+                c.execute("INSERT INTO device_registry(device_id,device_type,status,auth_key_hash) VALUES('vend-01','esp32-s3-vending','active',?)",(hashlib.sha256(b'vend-key').hexdigest(),))
+                c.commit()
+            assert client.post("/api/v1/members/m1/pin",json={"pin":"1234"}).status_code==200
+            dep=client.post("/api/v1/cashier/deposits",
+                json={"credential_id":"cred1","amount":10500,"pin":"9992","idempotency_key":"dep-1"},
+                headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
+            assert dep.status_code==200
+            assert dep.json()["balance_after"]==10500
+            report=client.get("/api/v1/audit/report?source=CASHIER&period=day")
+            assert report.status_code==200
+            assert all(x["source"]=="CASHIER" for x in report.json()["transactions"])
+            assert report.json()["transactions"][0]["amount"]==10500
+        finally:
+            main.get_settings=old
+
+def test_operator_pin_can_be_changed_by_admin():
+    with TemporaryDirectory() as d:
+        old=main.get_settings
+        main.get_settings=lambda: type("S",(),{
+            "db_path":Path(d)/"nvm.db","data_dir":Path(d),"admin_token":"admin-secret"
+        })()
+        try:
+            client=TestClient(main.create_app())
+            r=client.post("/api/v1/cashier/operator-pin",json={"pin":"4321"},headers={"X-NVM-Admin-Token":"admin-secret"})
+            assert r.status_code==200
+            with client.app.state.db.connect() as c:
+                c.execute("INSERT INTO identity_members(member_id,name) VALUES('m1','Member')")
+                c.execute("INSERT INTO financial_accounts(account_id,member_id,account_type) VALUES('a1','m1','savings')")
+                c.execute("INSERT INTO identity_credentials(credential_id,member_id,credential_type,status,enabled) VALUES('cred1','m1','nfc','active',1)")
+                c.execute("INSERT INTO device_registry(device_id,device_type,status,auth_key_hash) VALUES('cash-01','esp32-cashier','active',?)",(hashlib.sha256(b'cash-key').hexdigest(),))
+                c.commit()
+            ok=client.post("/api/v1/cashier/deposits",json={"credential_id":"cred1","amount":1000,"pin":"4321","idempotency_key":"dep-2"},headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
+            assert ok.status_code==200
+            bad=client.post("/api/v1/cashier/deposits",json={"credential_id":"cred1","amount":1000,"pin":"9992","idempotency_key":"dep-3"},headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
+            assert bad.status_code==403
+        finally:
+            main.get_settings=old
