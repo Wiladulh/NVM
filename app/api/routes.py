@@ -70,9 +70,10 @@ class VendingBeginRequest(BaseModel):
 class VendingDispenseRequest(BaseModel):
     success: bool = True
 
-def build_router(db):
+def build_router(db, app_settings=None):
     r = APIRouter(prefix="/api/v1")
-    app_settings = __import__("app.core.config",fromlist=["get_settings"]).get_settings()
+    if app_settings is None:
+        app_settings = __import__("app.core.config",fromlist=["get_settings"]).get_settings()
     identity = IdentityService(db)
     payments = PaymentService(db)
     financial = FinancialService(db)
