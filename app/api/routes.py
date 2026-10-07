@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import hashlib
 import secrets
@@ -6,6 +7,9 @@ from app.identity.service import IdentityService
 from app.payment.service import PaymentService
 from app.financial.service import FinancialService
 from app.vending.service import VendingService
+from app.core.backup import export_excel, create_native_backup, restore_native_backup, import_excel
+from pathlib import Path
+from uuid import uuid4
 
 class PaymentRequest(BaseModel):
     credential_id: str
@@ -69,6 +73,15 @@ class VendingBeginRequest(BaseModel):
 
 class VendingDispenseRequest(BaseModel):
     success: bool = True
+
+class CashierDepositRequest(BaseModel):
+    credential_id: str
+    amount: int
+    pin: str
+    idempotency_key: str
+
+class OperatorPinRequest(BaseModel):
+    pin: str
 
 def build_router(db, app_settings=None):
     r = APIRouter(prefix="/api/v1")
@@ -283,6 +296,57 @@ def build_router(db, app_settings=None):
             code=str(e)
             raise HTTPException(409 if code in {"insufficient_balance", "idempotency_key_conflict"} else 400,code)
 
+    @r.post("/cashier/operator-pin")
+    def cashier_operator_pin(q:OperatorPinRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        token=getattr(app_settings,"admin_token","")
+        if not token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,token):
+            raise HTTPException(401,"admin_auth_required")
+        if not q.pin.isdigit() or not 4 <= len(q.pin) <= 6:
+            raise HTTPException(400,"pin_must_be_4_to_6_digits")
+        salt=secrets.token_hex(16)
+        digest=hashlib.pbkdf2_hmac("sha256",q.pin.encode(),salt.encode(),120000).hex()
+        with db.connect() as c:
+            c.execute("INSERT OR REPLACE INTO system_meta(key,value) VALUES('cashier_operator_pin_hash',?)",(salt+":"+digest,))
+            c.execute("INSERT INTO audit_events(event_type,entity_type,entity_id,detail) VALUES(?,?,?,?)",("cashier","operator_pin","system","updated"))
+            c.commit()
+        return {"status":"pin_updated"}
+
+    def verify_operator_pin(pin):
+        with db.connect() as c:
+            row=c.execute("SELECT value FROM system_meta WHERE key='cashier_operator_pin_hash'").fetchone()
+        if not row or not row["value"] or ":" not in row["value"]: return False
+        salt,digest=row["value"].split(":",1)
+        got=hashlib.pbkdf2_hmac("sha256",pin.encode(),salt.encode(),120000).hex()
+        return secrets.compare_digest(got,digest)
+
+    @r.post("/cashier/deposits")
+    def cashier_deposit(q:CashierDepositRequest,x_nvm_device_key: str | None = Header(default=None),x_nvm_device_id: str | None = Header(default=None)):
+        if not x_nvm_device_id: raise HTTPException(400,"device_id_required")
+        require_device(x_nvm_device_id,x_nvm_device_key)
+        if not verify_operator_pin(q.pin): raise HTTPException(403,"invalid_operator_pin")
+        if not q.idempotency_key: raise HTTPException(400,"idempotency_key_required")
+        if not isinstance(q.amount,int) or q.amount<=0: raise HTTPException(400,"amount_must_be_positive_integer")
+        auth=identity.authorize_credential(q.credential_id)
+        if not auth["authorized"]: raise HTTPException(403,auth["reason"])
+        account=identity.account_for_credential(q.credential_id)
+        if not account["authorized"]: raise HTTPException(404,account["reason"])
+        with db.connect() as c:
+            old=c.execute("SELECT * FROM cashier_deposits WHERE idempotency_key=?",(q.idempotency_key,)).fetchone()
+        if old: return dict(old)
+        before=financial.balance(account["account_id"])
+        fin=financial.credit(account["account_id"],q.amount,reference="cashier-deposit:"+q.idempotency_key,idempotency_key="cashier-deposit:"+q.idempotency_key)
+        after=before+q.amount
+        tid="cash-"+uuid4().hex
+        with db.connect() as c:
+            c.execute("""INSERT INTO cashier_deposits
+                (transaction_id,device_id,credential_id,member_id,account_id,amount,status,idempotency_key,balance_before,balance_after,completed_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)""",
+                (tid,x_nvm_device_id,q.credential_id,account["member_id"],account["account_id"],q.amount,"completed",q.idempotency_key,before,after))
+            c.execute("INSERT INTO audit_events(event_type,entity_type,entity_id,detail) VALUES(?,?,?,?)",
+                      ("cashier","cashier_deposit",tid,f"deposit:{q.amount}:member={account['member_id']}:device={x_nvm_device_id}"))
+            c.commit()
+        return {"transaction_id":tid,"status":"completed","member_id":account["member_id"],"account_id":account["account_id"],"amount":q.amount,"balance_before":before,"balance_after":after,"financial_transaction_id":fin["transaction_id"]}
+
     @r.post("/cashier/payments")
     def cashier_payment(q:PaymentRequest,x_nvm_device_key: str | None = Header(default=None)):
         if q.device_id is None:raise HTTPException(400,"device_id_required")
@@ -295,5 +359,79 @@ def build_router(db, app_settings=None):
         except ValueError as e:
             code=str(e)
             raise HTTPException(409 if code in {"insufficient_balance", "idempotency_key_conflict"} else 400,code)
+
+    @r.get("/audit/report")
+    def audit_report(source:str="ALL",period:str="day",date:str|None=None):
+        source=source.upper()
+        if source not in {"ALL","CASHIER","VENDING"}: raise HTTPException(400,"invalid_source")
+        if period not in {"day","week","month"}: raise HTTPException(400,"invalid_period")
+        import datetime as dt
+        date=date or dt.date.today().isoformat()
+        if period=="day":
+            start=date; end=date+" 23:59:59"
+        elif period=="month":
+            y,m=map(int,date[:7].split("-")); start=f"{y:04d}-{m:02d}-01"
+            end=f"{y+1:04d}-01-01" if m==12 else f"{y:04d}-{m+1:02d}-01"
+        else:
+            d=dt.date.fromisoformat(date); monday=d-dt.timedelta(days=d.weekday())
+            start=monday.isoformat(); end=(monday+dt.timedelta(days=7)).isoformat()
+        queries=[]
+        if source in {"ALL","CASHIER"}:
+            queries.append("""SELECT transaction_id,created_at,'CASHIER' source,device_id,member_id,account_id,
+                              'DEPOSIT' transaction_type,amount,status FROM cashier_deposits""")
+        if source in {"ALL","VENDING"}:
+            queries.append("""SELECT v.transaction_id,v.created_at,'VENDING' source,m.device_id,v.credential_id,
+                              v.account_id,'PURCHASE' transaction_type,v.amount,v.status
+                              FROM vending_transactions v LEFT JOIN vending_machines m ON m.machine_id=v.machine_id""")
+        sql=" UNION ALL ".join("SELECT * FROM ("+q+") WHERE created_at>=? AND created_at<?" for q in queries)+" ORDER BY created_at DESC"
+        args=[v for _ in queries for v in (start,end)]
+        with db.connect() as c:
+            rows=c.execute(sql,args).fetchall()
+        return {"source":source,"period":period,"start":start,"end":end,"transactions":[dict(x) for x in rows]}
+
+    @r.get("/audit/export.xlsx")
+    def audit_export(source:str="ALL",period:str="day",date:str|None=None):
+        root=Path(getattr(app_settings,"data_dir",Path.home()/".local/share/nvm"))/"exports"
+        root.mkdir(parents=True,exist_ok=True)
+        path=root/f"audit-{source.lower()}-{period}-{date or 'today'}.xlsx"
+        export_excel(db,path)
+        return FileResponse(path,filename=path.name,media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    @r.post("/backup")
+    def backup_create(x_nvm_admin_token: str | None = Header(default=None)):
+        token=getattr(app_settings,"admin_token","")
+        if not token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,token):
+            raise HTTPException(401,"admin_auth_required")
+        root=Path(getattr(app_settings,"data_dir",Path.home()/".local/share/nvm"))/"backups"
+        root.mkdir(parents=True,exist_ok=True)
+        import datetime as dt
+        path=root/f"NVM_BACKUP_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.nvm.zip"
+        create_native_backup(db,path,include_excel=True)
+        return FileResponse(path,filename=path.name,media_type="application/zip")
+
+    @r.post("/backup/restore")
+    async def backup_restore(file:UploadFile=File(...),x_nvm_admin_token: str | None = Header(default=None)):
+        token=getattr(app_settings,"admin_token","")
+        if not token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,token):
+            raise HTTPException(401,"admin_auth_required")
+        if not file.filename or not file.filename.endswith(".nvm.zip"): raise HTTPException(400,"invalid_backup_file")
+        root=Path(getattr(app_settings,"data_dir",Path.home()/".local/share/nvm"))/"backups"
+        root.mkdir(parents=True,exist_ok=True); path=root/"restore-upload.nvm.zip"
+        path.write_bytes(await file.read())
+        try: result=restore_native_backup(db,path)
+        except Exception as e: raise HTTPException(400,str(e))
+        return {"status":"restored","manifest":result}
+
+    @r.post("/backup/import-excel")
+    async def backup_import_excel(file:UploadFile=File(...),x_nvm_admin_token: str | None = Header(default=None)):
+        token=getattr(app_settings,"admin_token","")
+        if not token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,token):
+            raise HTTPException(401,"admin_auth_required")
+        if not file.filename or not file.filename.lower().endswith(".xlsx"): raise HTTPException(400,"invalid_excel_file")
+        root=Path(getattr(app_settings,"data_dir",Path.home()/".local/share/nvm"))/"imports"
+        root.mkdir(parents=True,exist_ok=True); path=root/"import.xlsx"; path.write_bytes(await file.read())
+        try: result=import_excel(db,path)
+        except Exception as e: raise HTTPException(400,str(e))
+        return {"status":"imported","result":result}
 
     return r
