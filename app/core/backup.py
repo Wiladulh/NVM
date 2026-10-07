@@ -113,9 +113,27 @@ def restore_native_backup(db, archive):
         if hashlib.sha256(dump).hexdigest()!=expected:
             raise ValueError("backup_checksum_mismatch")
         sql=dump.decode()
-    with db.connect() as c:
-        c.executescript(sql)
-        c.commit()
+    # Validate the SQL dump in an isolated temporary SQLite database first.
+    # Only replace the live database after the dump has been proven loadable.
+    tmp = archive.with_suffix(".restore.db")
+    tmp.unlink(missing_ok=True)
+    probe = None
+    try:
+        probe = sqlite3.connect(tmp)
+        probe.execute("PRAGMA foreign_keys=ON")
+        probe.executescript(sql)
+        probe.commit()
+        probe.close()
+        probe = None
+
+        live = Path(db.path)
+        live.parent.mkdir(parents=True, exist_ok=True)
+        tmp.replace(live)
+    except Exception:
+        if probe is not None:
+            probe.close()
+        tmp.unlink(missing_ok=True)
+        raise
     return manifest
 
 def import_excel(db, source):
