@@ -7,7 +7,7 @@ from app.identity.service import IdentityService
 from app.payment.service import PaymentService
 from app.financial.service import FinancialService
 from app.vending.service import VendingService
-from app.core.backup import export_excel, create_native_backup, restore_native_backup, import_excel
+from app.core.backup import export_excel, export_rows_excel, create_native_backup, restore_native_backup, import_excel
 from pathlib import Path
 from uuid import uuid4
 
@@ -404,7 +404,8 @@ def build_router(db, app_settings=None):
         root=Path(getattr(app_settings,"data_dir",Path.home()/".local/share/nvm"))/"exports"
         root.mkdir(parents=True,exist_ok=True)
         path=root/f"audit-{source.lower()}-{period}-{date or 'today'}.xlsx"
-        export_excel(db,path)
+        data=audit_report(source,period,date)
+        export_rows_excel(data["transactions"],path)
         return FileResponse(path,filename=path.name,media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     @r.post("/backup")
