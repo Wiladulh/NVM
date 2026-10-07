@@ -27,7 +27,7 @@ def test_cashier_deposit_and_audit_are_separate_from_vending():
                 headers={"X-NVM-Device-Key":"cash-key","X-NVM-Device-Id":"cash-01"})
             assert dep.status_code==200
             assert dep.json()["balance_after"]==10500
-            report=client.get("/api/v1/audit/report?source=CASHIER&period=day")
+            report=client.get("/api/v1/audit/report?source=CASHIER&period=day",headers={"X-NVM-Admin-Token":"admin-secret"})
             assert report.status_code==200
             assert all(x["source"]=="CASHIER" for x in report.json()["transactions"])
             assert report.json()["transactions"][0]["amount"]==10500
