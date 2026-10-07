@@ -371,7 +371,10 @@ def build_router(db, app_settings=None):
             raise HTTPException(409 if code in {"insufficient_balance", "idempotency_key_conflict"} else 400,code)
 
     @r.get("/audit/report")
-    def audit_report(source:str="ALL",period:str="day",date:str|None=None):
+    def audit_report(source:str="ALL",period:str="day",date:str|None=None,x_nvm_admin_token: str | None = Header(default=None)):
+        token=getattr(app_settings,"admin_token","")
+        if not token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,token):
+            raise HTTPException(401,"admin_auth_required")
         source=source.upper()
         if source not in {"ALL","CASHIER","VENDING"}: raise HTTPException(400,"invalid_source")
         if period not in {"day","week","month"}: raise HTTPException(400,"invalid_period")
@@ -400,7 +403,10 @@ def build_router(db, app_settings=None):
         return {"source":source,"period":period,"start":start,"end":end,"transactions":[dict(x) for x in rows]}
 
     @r.get("/audit/export.xlsx")
-    def audit_export(source:str="ALL",period:str="day",date:str|None=None):
+    def audit_export(source:str="ALL",period:str="day",date:str|None=None,x_nvm_admin_token: str | None = Header(default=None)):
+        token=getattr(app_settings,"admin_token","")
+        if not token or not x_nvm_admin_token or not secrets.compare_digest(x_nvm_admin_token,token):
+            raise HTTPException(401,"admin_auth_required")
         root=Path(getattr(app_settings,"data_dir",Path.home()/".local/share/nvm"))/"exports"
         root.mkdir(parents=True,exist_ok=True)
         path=root/f"audit-{source.lower()}-{period}-{date or 'today'}.xlsx"
