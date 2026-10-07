@@ -1,5 +1,5 @@
--- Schema 012 is applied idempotently by Database.migrate() because SQLite
--- does not support ADD COLUMN IF NOT EXISTS on all supported versions.
+-- Transaction separation, cashier deposits and retention metadata.
+-- ALTER TABLE compatibility is handled idempotently by Database.migrate().
 CREATE TABLE IF NOT EXISTS cashier_deposits(
     transaction_id TEXT PRIMARY KEY,
     device_id TEXT NOT NULL,
