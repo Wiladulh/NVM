@@ -384,6 +384,17 @@ def build_router(db, app_settings=None):
         except ValueError as e:
             raise HTTPException(400,str(e))
 
+    @r.get("/promotions/resolve")
+    def promotion_resolve(machine_id: str,product_id: str,payment_method: str,
+                           payment_provider: str | None = None,
+                           x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            result = promos.resolve(machine_id,product_id,payment_method,payment_provider)
+            return {"promotion":result}
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+
     @r.get("/promotions/{promo_id}")
     def promotion_get(promo_id,x_nvm_admin_token: str | None = Header(default=None)):
         require_admin(x_nvm_admin_token)
@@ -397,17 +408,6 @@ def build_router(db, app_settings=None):
         require_admin(x_nvm_admin_token)
         try:
             return promos.update(promo_id,**q.model_dump(exclude_none=True))
-        except ValueError as e:
-            raise HTTPException(400,str(e))
-
-    @r.get("/promotions/resolve")
-    def promotion_resolve(machine_id: str,product_id: str,payment_method: str,
-                           payment_provider: str | None = None,
-                           x_nvm_admin_token: str | None = Header(default=None)):
-        require_admin(x_nvm_admin_token)
-        try:
-            result = promos.resolve(machine_id,product_id,payment_method,payment_provider)
-            return {"promotion":result}
         except ValueError as e:
             raise HTTPException(400,str(e))
 
