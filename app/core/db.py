@@ -85,16 +85,12 @@ class Database:
                     continue
 
                 if path.name == "016_hardware_registry.sql":
-                    marker = c.execute(
-                        "SELECT value FROM system_meta WHERE key='hardware_registry_schema_version'"
-                    ).fetchone()
-                    if marker and marker[0] == "001":
-                        continue
                     device_columns = {row[1] for row in c.execute("PRAGMA table_info(device_registry)")}
                     additions = {
                         "hardware_id": "TEXT",
                         "mac_address": "TEXT",
                         "display_name": "TEXT",
+                        "created_at": "TEXT",
                         "updated_at": "TEXT",
                     }
                     for name, definition in additions.items():
@@ -109,9 +105,18 @@ class Database:
                         "WHERE display_name IS NULL OR display_name=''"
                     )
                     c.execute(
+                        "UPDATE device_registry SET created_at=CURRENT_TIMESTAMP "
+                        "WHERE created_at IS NULL OR created_at=''"
+                    )
+                    c.execute(
                         "UPDATE device_registry SET updated_at=CURRENT_TIMESTAMP "
                         "WHERE updated_at IS NULL OR updated_at=''"
                     )
+                    marker = c.execute(
+                        "SELECT value FROM system_meta WHERE key='hardware_registry_schema_version'"
+                    ).fetchone()
+                    if marker and marker[0] == "001":
+                        continue
 
                 if path.name == "013_feature_foundation.sql":
                     marker = c.execute(
