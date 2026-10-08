@@ -1,0 +1,28 @@
+name: ESP32 Cashier Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "esp32/cashier/**"
+      - "platformio.ini"
+      - ".github/workflows/esp32-cashier.yml"
+
+jobs:
+  build-cashier:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PlatformIO
+        uses: platformio/action@v2
+
+      - name: Build ESP32 Cashier
+        run: pio run -e esp32dev
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvm-esp32-cashier-firmware
+          path: .pio/build/esp32dev/firmware.bin
