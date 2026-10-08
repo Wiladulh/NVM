@@ -4,6 +4,9 @@ from pydantic import BaseModel
 import hashlib
 import secrets
 from app.identity.service import IdentityService
+from app.identity.management import MemberManagementService
+from app.device.management import DeviceManagementService
+from app.vending.promo import PromotionService
 from app.payment.service import PaymentService
 from app.financial.service import FinancialService
 from app.vending.service import VendingService
@@ -27,6 +30,45 @@ class PaymentRequest(BaseModel):
 
 class PinRequest(BaseModel):
     pin: str
+
+class MemberCreateRequest(BaseModel):
+    name: str
+    nik: str | None = None
+    address: str | None = None
+
+class MemberUpdateRequest(BaseModel):
+    name: str | None = None
+    nik: str | None = None
+    address: str | None = None
+    status: str | None = None
+
+class NfcCardRequest(BaseModel):
+    card_uid: str
+    credential_id: str | None = None
+
+class PromoRequest(BaseModel):
+    scope: str
+    machine_id: str | None = None
+    product_id: str | None = None
+    payment_method: str
+    payment_provider: str | None = None
+    discount_percent: float
+    starts_at: str | None = None
+    ends_at: str | None = None
+    priority: int = 0
+    enabled: bool = True
+
+class PromoUpdateRequest(BaseModel):
+    scope: str | None = None
+    machine_id: str | None = None
+    product_id: str | None = None
+    payment_method: str | None = None
+    payment_provider: str | None = None
+    discount_percent: float | None = None
+    starts_at: str | None = None
+    ends_at: str | None = None
+    priority: int | None = None
+    enabled: bool | None = None
 
 class DeviceHeartbeatRequest(BaseModel):
     device_type: str
@@ -89,6 +131,9 @@ def build_router(db, app_settings=None):
     if app_settings is None:
         app_settings = __import__("app.core.config",fromlist=["get_settings"]).get_settings()
     identity = IdentityService(db)
+    members = MemberManagementService(db)
+    devices = DeviceManagementService(db)
+    promos = PromotionService(db)
     payments = PaymentService(db)
     financial = FinancialService(db)
     vending = VendingService(db)
@@ -148,10 +193,111 @@ def build_router(db, app_settings=None):
                 "machines":[dict(x) for x in machines],"products":[dict(x) for x in products],
                 "devices":[dict(x) for x in devices]}
 
+    def require_admin(token):
+        configured = getattr(app_settings,"admin_token","")
+        if not configured or not token or not secrets.compare_digest(token,configured):
+            raise HTTPException(401,"admin_auth_required")
+
+    @r.get("/members")
+    def members_list(include_deleted: bool = False, x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        return {"members": members.list(include_deleted)}
+
+    @r.post("/members")
+    def member_create(q: MemberCreateRequest, x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        member_id = "member-" + uuid4().hex
+        try:
+            return members.create(member_id,q.name,q.nik,q.address)
+        except ValueError as e:
+            raise HTTPException(409 if "already" in str(e) else 400,str(e))
+
+    @r.get("/members/{member_id}")
+    def member_get(member_id, x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        result = members.get(member_id)
+        if result is None:
+            raise HTTPException(404,"member_not_found")
+        return result
+
+    @r.patch("/members/{member_id}")
+    def member_update(member_id,q: MemberUpdateRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return members.update(member_id,q.name,q.nik,q.address,q.status)
+        except ValueError as e:
+            code=str(e)
+            raise HTTPException(409 if "already" in code else 400,code)
+
+    @r.delete("/members/{member_id}")
+    def member_delete(member_id,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return members.soft_delete(member_id)
+        except ValueError as e:
+            raise HTTPException(404,str(e))
+
+    @r.post("/members/{member_id}/nfc-cards")
+    def member_add_nfc(member_id,q: NfcCardRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return members.add_card(member_id,q.card_uid,q.credential_id)
+        except ValueError as e:
+            code=str(e)
+            raise HTTPException(409 if "already" in code else 400,code)
+
+    @r.post("/members/{member_id}/nfc-cards/{card_id}/revoke")
+    def member_revoke_nfc(member_id,card_id,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            result = members.revoke_card(card_id)
+            if result["member_id"] != member_id:
+                raise HTTPException(404,"nfc_card_not_found")
+            return result
+        except ValueError as e:
+            raise HTTPException(404,str(e))
+
+    @r.get("/nfc/cards/{card_uid}")
+    def nfc_card_resolve(card_uid,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        result = members.resolve_card(card_uid)
+        if result is None:
+            raise HTTPException(404,"nfc_card_not_found")
+        return result
+
     @r.post("/members/{member_id}/pin")
     def set_member_pin(member_id,q:PinRequest):
         try:return identity.set_pin(member_id,q.pin)
         except ValueError as e:raise HTTPException(400,str(e))
+
+    @r.get("/devices")
+    def devices_list(include_deleted: bool = False, x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        return {"devices": devices.list(include_deleted)}
+
+    @r.get("/devices/{device_id}")
+    def device_get(device_id,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        result = devices.get(device_id)
+        if result is None:
+            raise HTTPException(404,"device_not_found")
+        return result
+
+    @r.patch("/devices/{device_id}")
+    def device_update(device_id,q: DeviceHeartbeatRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return devices.update(device_id,q.device_type,q.status)
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+
+    @r.delete("/devices/{device_id}")
+    def device_delete(device_id,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return devices.soft_delete(device_id)
+        except ValueError as e:
+            raise HTTPException(404,str(e))
 
     @r.post("/devices/{device_id}/provision")
     def device_provision(device_id,q:DeviceProvisionRequest,x_nvm_admin_token: str | None = Header(default=None)):
@@ -218,6 +364,52 @@ def build_router(db, app_settings=None):
         try:return financial.debit(account_id,q.amount,q.reference,q.idempotency_key)
         except ValueError as e:
             code=str(e); raise HTTPException(409 if code=="insufficient_balance" else 400,code)
+
+    @r.get("/promotions")
+    def promotions_list(machine_id: str | None = None, payment_method: str | None = None,
+                         include_disabled: bool = True, x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return {"promotions": promos.list(machine_id,payment_method,include_disabled)}
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+
+    @r.post("/promotions")
+    def promotion_create(q: PromoRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return promos.create(q.scope,q.machine_id,q.product_id,q.payment_method,
+                                 q.payment_provider,q.discount_percent,q.starts_at,q.ends_at,
+                                 q.priority,q.enabled)
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+
+    @r.get("/promotions/{promo_id}")
+    def promotion_get(promo_id,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        result = promos.get(promo_id)
+        if result is None:
+            raise HTTPException(404,"promo_not_found")
+        return result
+
+    @r.patch("/promotions/{promo_id}")
+    def promotion_update(promo_id,q: PromoUpdateRequest,x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            return promos.update(promo_id,**q.model_dump(exclude_none=True))
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+
+    @r.get("/promotions/resolve")
+    def promotion_resolve(machine_id: str,product_id: str,payment_method: str,
+                           payment_provider: str | None = None,
+                           x_nvm_admin_token: str | None = Header(default=None)):
+        require_admin(x_nvm_admin_token)
+        try:
+            result = promos.resolve(machine_id,product_id,payment_method,payment_provider)
+            return {"promotion":result}
+        except ValueError as e:
+            raise HTTPException(400,str(e))
 
     @r.get("/vending")
     def vending_list():
