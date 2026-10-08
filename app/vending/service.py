@@ -1,5 +1,6 @@
 from uuid import uuid4
 from app.payment.service import PaymentService
+from app.vending.promo import PromotionService
 
 class VendingService:
     VALID_STATUSES = {"active", "disabled", "maintenance"}
@@ -7,6 +8,7 @@ class VendingService:
     def __init__(self, db):
         self.db=db
         self.payment=PaymentService(db)
+        self.promos=PromotionService(db)
 
     def machines(self):
         with self.db.connect() as c:
@@ -158,13 +160,20 @@ class VendingService:
             if not p: raise ValueError("product_not_found")
             if not p["enabled"]: raise ValueError("product_disabled")
             if p["stock"]<=0: raise ValueError("out_of_stock")
+            promo=self.promos.resolve(machine_id,product_id,payment_method,payment_provider)
+            discount=0
+            promo_id=None
+            if promo:
+                discount,_=self.promos.calculate(p["price"],promo["discount_percent"])
+                promo_id=promo["promo_id"]
+            final_amount=p["price"]-discount
             tx="vend-"+uuid4().hex
             c.execute("""INSERT INTO vending_transactions
                 (transaction_id,machine_id,product_id,credential_id,account_id,base_amount,discount_amount,amount,
-                 payment_method,payment_provider,payment_status,status,dispense_status,idempotency_key)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (tx,machine_id,product_id,credential_id,account_id,p["price"],0,p["price"],payment_method,payment_provider,
-                 "pending","pending","pending",idempotency_key))
+                 payment_method,payment_provider,payment_status,status,dispense_status,idempotency_key,promo_id)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (tx,machine_id,product_id,credential_id,account_id,p["price"],discount,final_amount,payment_method,payment_provider,
+                 "pending","pending","pending",idempotency_key,promo_id))
             c.commit()
         return self.get(tx)
 
@@ -175,9 +184,16 @@ class VendingService:
         try:
             if tx["payment_method"]=="QRIS":
                 raise ValueError("qris_payment_provider_not_activated")
-            payment=self.payment.pay(tx["credential_id"],None,tx["amount"],
-                reference=transaction_id,method=tx["payment_method"],provider=tx["payment_provider"],
-                idempotency_key="vending-payment:"+transaction_id)
+            payment=self.payment.pay(
+                tx["credential_id"],None,tx["amount"],
+                reference=transaction_id,
+                method=tx["payment_method"],
+                provider=tx["payment_provider"],
+                idempotency_key="vending-payment:"+transaction_id,
+                original_amount=tx["base_amount"],
+                discount_amount=tx["discount_amount"],
+                promo_id=tx.get("promo_id")
+            )
         except Exception:
             with self.db.connect() as c:
                 c.execute("UPDATE vending_transactions SET status='failed',payment_status='failed',dispense_status='not_started' WHERE transaction_id=?",(transaction_id,))
