@@ -35,11 +35,24 @@ class MemberCreateRequest(BaseModel):
     name: str
     nik: str | None = None
     address: str | None = None
+    birth_place: str | None = None
+    birth_date: str | None = None
+    sex: str | None = None
+    rt: str | None = None
+    rw: str | None = None
+    village: str | None = None
+    district: str | None = None
+    city_regency: str | None = None
+    province: str | None = None
+    religion: str | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    citizenship: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    registration_date: str | None = None
 
-class MemberUpdateRequest(BaseModel):
-    name: str | None = None
-    nik: str | None = None
-    address: str | None = None
+class MemberUpdateRequest(MemberCreateRequest):
     status: str | None = None
 
 class NfcCardRequest(BaseModel):
@@ -270,7 +283,7 @@ def build_router(db, app_settings=None):
         require_admin(x_nvm_admin_token)
         member_id = "member-" + uuid4().hex
         try:
-            return members.create(member_id,q.name,q.nik,q.address)
+            return members.create(member_id,q.name,q.nik,q.address,q.birth_place,q.birth_date,q.sex,q.rt,q.rw,q.village,q.district,q.city_regency,q.province,q.religion,q.marital_status,q.occupation,q.citizenship,q.phone,q.email,q.registration_date)
         except ValueError as e:
             raise HTTPException(409 if "already" in str(e) else 400,str(e))
 
@@ -286,7 +299,7 @@ def build_router(db, app_settings=None):
     def member_update(member_id,q: MemberUpdateRequest,x_nvm_admin_token: str | None = Header(default=None)):
         require_admin(x_nvm_admin_token)
         try:
-            return members.update(member_id,q.name,q.nik,q.address,q.status)
+            return members.update(member_id,q.name,q.nik,q.address,q.status,q.birth_place,q.birth_date,q.sex,q.rt,q.rw,q.village,q.district,q.city_regency,q.province,q.religion,q.marital_status,q.occupation,q.citizenship,q.phone,q.email,q.registration_date)
         except ValueError as e:
             code=str(e)
             raise HTTPException(409 if "already" in code else 400,code)
