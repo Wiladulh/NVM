@@ -28,6 +28,18 @@ unsigned long lastHeartbeat=0,paymentSequence=0,depositSequence=0;
 bool readerReady=false;
 long paymentAmount=0;
 
+String getJson(const String& path,int& code){
+  HTTPClient http; http.begin(String(NVM_BASE_URL)+path);
+  http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY); code=http.GET();
+  String out=code>0?http.getString():""; http.end(); return out;
+}
+
+String jsonField(const String& body,const String& key){
+  String needle="\"" + key + "\":\""; int p=body.indexOf(needle);
+  if(p<0)return ""; p+=needle.length(); int e=body.indexOf("\"",p);
+  return e<0?"":body.substring(p,e);
+}
+
 String postJson(const String& path,const String& body,int& code){
   HTTPClient http; http.begin(String(NVM_BASE_URL)+path);
   http.addHeader("Content-Type","application/json");
@@ -99,6 +111,31 @@ void scanTopup(const String& operatorPin){
   delay(700);
 }
 
+void registrationScan(const String& session){
+  lcdShow("REGISTRASI NFC","Silahkan scan");
+  uint8_t uid[7]={0},len=0;
+  while(!card.readUID(uid,len)){ if(WiFi.status()!=WL_CONNECTED)connectWifi(); delay(20); }
+  String credential=uidToCredential(uid,len);
+  lcdShow("Kartu diterima","PIN 4 digit:");
+  String pin=readKeyDigits("PIN 4 digit:",true);
+  String body="{\"session_id\":\""+session+"\",\"card_uid\":\""+credential.substring(4)+"\",\"pin\":\""+pin+"\"}";
+  int code=0; String reply=postJson(String("/api/v1/cashier/")+DEVICE_ID+"/nfc-registration/complete",body,code);
+  Serial.printf("NFC REG %d %s\n",code,reply.c_str());
+  if(code==200) lcdShow("REGISTRASI","BERHASIL");
+  else lcdShow("REGISTRASI","GAGAL");
+  delay(1800);
+}
+
+void pollRegistration(){
+  int code=0; String reply=getJson(String("/api/v1/cashier/")+DEVICE_ID+"/nfc-registration",code);
+  if(code!=200)return;
+  String status=jsonField(reply,"status");
+  if(status=="scan_pending"){
+    String session=jsonField(reply,"session_id");
+    if(session.length()) registrationScan(session);
+  }
+}
+
 void scanCard(){
   if(!readerReady||paymentAmount<=0)return;
   uint8_t uid[7]={0},len=0;
@@ -145,6 +182,8 @@ void setup(){
 
 void loop(){
   if(WiFi.status()!=WL_CONNECTED)connectWifi();
+  static unsigned long lastRegistrationPoll=0;
+  if(millis()-lastRegistrationPoll>=1000UL){lastRegistrationPoll=millis();pollRegistration();}
   if(millis()-lastHeartbeat>=30000UL){lastHeartbeat=millis();heartbeat();}
   char mode=0;
   while(!mode){
