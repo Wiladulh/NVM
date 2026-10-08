@@ -14,12 +14,11 @@ def test_cashier_device_registration_and_heartbeat_gate():
         try:
             client = TestClient(main.create_app())
 
-            unauthorized = client.post(
+            missing_key = client.post(
                 "/api/v1/devices/cashier-01/heartbeat",
                 json={"device_type": "esp32-cashier", "status": "active"},
-                headers={"X-NVM-Device-Key": "invalid-key"},
             )
-            assert unauthorized.status_code == 401
+            assert missing_key.status_code == 401
 
             provision = client.post(
                 "/api/v1/devices/cashier-01/provision",
@@ -31,6 +30,13 @@ def test_cashier_device_registration_and_heartbeat_gate():
             device_key = data["device_key"]
             assert data["device_id"] == "cashier-01"
             assert data["device_type"] == "esp32-cashier"
+
+            invalid_key = client.post(
+                "/api/v1/devices/cashier-01/heartbeat",
+                json={"device_type": "esp32-cashier", "status": "active"},
+                headers={"X-NVM-Device-Key": "invalid-key"},
+            )
+            assert invalid_key.status_code == 403
 
             heartbeat = client.post(
                 "/api/v1/devices/cashier-01/heartbeat",
