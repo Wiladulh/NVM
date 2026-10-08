@@ -39,9 +39,11 @@ form{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8
 </section>
 
 <section id="identity" class="pane">
-<div class="section"><h2>Member Registry</h2><div class="hint">Member + NFC credential/card association.</div><div id="members" class="scroll"></div></div>
-<div class="section"><h2>NFC Credential</h2><form id="card"><input value="04:A1:B2:C3:D4" placeholder="Card UID"><input value="member-demo-001" placeholder="Member ID"><button class="primary">Resolve Card</button></form><div id="cardres" class="result">Menunggu aksi.</div></div>
-<div class="section"><h2>Authorization / Access Event</h2><div class="notice">Credential authorization dan access event tersedia melalui API v1. Demo ini tidak mengubah database.</div></div>
+<div class="section"><h2>Member Registration</h2><div class="hint">Alur resmi: KTP → admin input member → pilih cashier → Scan NFC → PIN transaksi 4 digit → validator member tersimpan.</div>
+<div class="grid"><div class="card"><div class="label">Step 1</div><div class="value">KTP</div><div class="sub">Admin verifikasi identitas calon member.</div></div><div class="card"><div class="label">Step 2</div><div class="value">Member</div><div class="sub">Data member dibuat di server.</div></div><div class="card"><div class="label">Step 3</div><div class="value">Cashier</div><div class="sub">Pilih cashier yang akan melakukan scan.</div></div><div class="card"><div class="label">Step 4</div><div class="value">NFC + PIN</div><div class="sub">Cashier scan kartu lalu member memasukkan PIN 4 digit.</div></div></div></div>
+<div class="section"><h2>Cashier NFC Registration</h2><form id="regf"><select id="regmember"><option value="member-demo-001">Budi Santoso — member-demo-001</option><option value="member-demo-002">Siti Aminah — member-demo-002</option></select><select id="regcashier"><option>cashier-01</option><option>cashier-02</option><option>cashier-03</option></select><button class="primary">Start NFC Scan</button></form><div id="regstatus" class="result">Cashier idle. Pilih cashier lalu klik Start NFC Scan.</div></div>
+<div class="section"><h2>Member Registry / NFC Validator</h2><div id="members" class="scroll"></div></div>
+<div class="section"><h2>Authorization / Access Event</h2><div class="notice">NFC ID tidak dimasukkan manual. Credential berasal dari hasil scan cashier. PIN tidak ditampilkan kembali oleh WebUI dan disimpan server dalam bentuk hash.</div></div>
 </section>
 
 <section id="finance" class="pane">
