@@ -1,0 +1,24 @@
+<div id="tab-pembayaran" class="tab-pane">
+  <section class="section">
+    <h2>Pembayaran NFC / QRIS</h2>
+    <div class="hint">NFC, QRIS, dan CASH menggunakan payment core yang sama.</div>
+    <form id="paymentForm">
+      <input id="credential" placeholder="Credential ID" required>
+      <input id="payaccount" placeholder="Account ID" required>
+      <input id="payamount" type="number" min="1" placeholder="Jumlah" required>
+      <select id="method">
+        <option>NFC</option>
+        <option>QRIS</option>
+        <option>CASH</option>
+      </select>
+      <input id="provider" placeholder="Provider" value="local">
+      <input id="idem" placeholder="Idempotency key">
+      <button>Bayar</button>
+    </form>
+    <div id="paymentResult" class="result"></div>
+  </section>
+  <section class="section">
+    <h2>Transaksi Pembayaran</h2>
+    <div id="payments" class="scroll"></div>
+  </section>
+</div>
