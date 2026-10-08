@@ -73,6 +73,13 @@ class PromoUpdateRequest(BaseModel):
 class DeviceHeartbeatRequest(BaseModel):
     device_type: str
     status: str = "active"
+    display_name: str | None = None
+
+class DeviceRegisterRequest(BaseModel):
+    device_type: str
+    hardware_id: str
+    mac_address: str
+    device_key: str
 
 class DeviceProvisionRequest(BaseModel):
     device_type: str
@@ -320,9 +327,75 @@ def build_router(db, app_settings=None):
     def device_update(device_id,q: DeviceHeartbeatRequest,x_nvm_admin_token: str | None = Header(default=None)):
         require_admin(x_nvm_admin_token)
         try:
-            return devices.update(device_id,q.device_type,q.status)
+            return devices.update(device_id,q.device_type,q.status,q.display_name)
         except ValueError as e:
             raise HTTPException(400,str(e))
+
+    @r.post("/devices/register")
+    def device_register(q: DeviceRegisterRequest):
+        device_type = q.device_type.strip().lower()
+        hardware_id = q.hardware_id.strip()
+        mac_address = q.mac_address.strip().upper()
+        device_key = q.device_key.strip()
+        if device_type not in DeviceManagementService.ALLOWED_TYPES:
+            raise HTTPException(400,"invalid_device_type")
+        if not hardware_id:
+            raise HTTPException(400,"hardware_id_required")
+        if not mac_address:
+            raise HTTPException(400,"mac_address_required")
+        if not device_key:
+            raise HTTPException(400,"device_key_required")
+
+        digest = hashlib.sha256(device_key.encode("utf-8")).hexdigest()
+        with db.connect() as c:
+            row = c.execute(
+                """SELECT device_id,hardware_id,device_type,mac_address,display_name,status,auth_key_hash
+                   FROM device_registry WHERE hardware_id=?""",
+                (hardware_id,),
+            ).fetchone()
+            if row:
+                if not row["auth_key_hash"]:
+                    raise HTTPException(403,"device_not_provisioned")
+                if not secrets.compare_digest(digest,row["auth_key_hash"]):
+                    raise HTTPException(403,"invalid_device_key")
+                if row["status"] == "disabled":
+                    raise HTTPException(403,"device_disabled")
+                c.execute(
+                    """UPDATE device_registry
+                       SET device_type=?,mac_address=?,last_seen=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                       WHERE device_id=?""",
+                    (device_type,mac_address,row["device_id"]),
+                )
+                c.execute(
+                    "INSERT INTO device_events(device_id,event_type,payload) VALUES(?,?,?)",
+                    (row["device_id"],"registration",q.model_dump_json(exclude={"device_key"})),
+                )
+                c.commit()
+                return {"device_id":row["device_id"],"hardware_id":hardware_id,"device_type":device_type,
+                        "mac_address":mac_address,"display_name":row["display_name"],
+                        "status":row["status"],"registered":True}
+
+            device_id = "dev-" + uuid4().hex
+            c.execute(
+                """INSERT INTO device_registry
+                   (device_id,hardware_id,device_type,mac_address,display_name,status,last_seen,
+                    auth_key_hash,auth_key_hint,updated_at)
+                   VALUES(?,?,?,?,?,'pending',CURRENT_TIMESTAMP,?,?,CURRENT_TIMESTAMP)""",
+                (device_id,hardware_id,device_type,mac_address,hardware_id,digest,device_key[-6:]),
+            )
+            c.execute(
+                "INSERT INTO device_events(device_id,event_type,payload) VALUES(?,?,?)",
+                (device_id,"auto_registered",q.model_dump_json(exclude={"device_key"})),
+            )
+            c.execute(
+                "INSERT INTO audit_events(event_type,entity_type,entity_id,detail) VALUES(?,?,?,?)",
+                ("device","auto_registration",device_id,
+                 f"hardware={hardware_id}:type={device_type}:mac={mac_address}"),
+            )
+            c.commit()
+        return {"device_id":device_id,"hardware_id":hardware_id,"device_type":device_type,
+                "mac_address":mac_address,"display_name":hardware_id,
+                "status":"pending","registered":False}
 
     @r.delete("/devices/{device_id}")
     def device_delete(device_id,x_nvm_admin_token: str | None = Header(default=None)):
