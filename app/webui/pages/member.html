@@ -1,6 +1,12 @@
-<div id="tab-anggota" class="tab-pane">
+<div id="tab-member" class="tab-pane">
   <section class="section">
-    <h2>Anggota</h2>
+    <h2>Member / Anggota</h2>
+    <p class="hint">Kelola data nasabah/member. Registrasi identitas KTP akan dilanjutkan pada tahap berikutnya.</p>
+    <form id="memberAuthForm" class="inline-form">
+      <label>Admin Token<input id="memberAdminToken" type="password" autocomplete="off" required></label>
+      <button type="submit">Muat Member</button>
+    </form>
+    <div id="memberAuthResult" class="hint"></div>
     <div id="members" class="scroll"></div>
   </section>
 </div>
