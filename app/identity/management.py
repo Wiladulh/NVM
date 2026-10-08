@@ -12,7 +12,7 @@ class MemberManagementService:
         with self.db.connect() as c:
             rows = c.execute(
                 f"""
-                SELECT member_id,name,status,nik,address,created_at,deleted_at
+                SELECT member_id,name,status,nik,address,birth_place,birth_date,sex,rt,rw,village,district,city_regency,province,religion,marital_status,occupation,citizenship,phone,email,registration_date,created_at,deleted_at
                 FROM identity_members
                 {where}
                 ORDER BY created_at DESC
@@ -24,7 +24,7 @@ class MemberManagementService:
         with self.db.connect() as c:
             row = c.execute(
                 """
-                SELECT member_id,name,status,nik,address,created_at,deleted_at
+                SELECT member_id,name,status,nik,address,birth_place,birth_date,sex,rt,rw,village,district,city_regency,province,religion,marital_status,occupation,citizenship,phone,email,registration_date,created_at,deleted_at
                 FROM identity_members WHERE member_id=?
                 """,
                 (member_id,),
@@ -42,7 +42,7 @@ class MemberManagementService:
             result["nfc_cards"] = [dict(x) for x in cards]
             return result
 
-    def create(self, member_id, name, nik=None, address=None):
+    def create(self, member_id, name, nik=None, address=None, birth_place=None, birth_date=None, sex=None, rt=None, rw=None, village=None, district=None, city_regency=None, province=None, religion=None, marital_status=None, occupation=None, citizenship=None, phone=None, email=None, registration_date=None):
         member_id = (member_id or "").strip()
         name = (name or "").strip()
         nik = (nik or "").strip() or None
@@ -53,10 +53,10 @@ class MemberManagementService:
             try:
                 c.execute(
                     """
-                    INSERT INTO identity_members(member_id,name,status,nik,address)
-                    VALUES(?,?,?,?,?)
+                    INSERT INTO identity_members(member_id,name,status,nik,address,birth_place,birth_date,sex,rt,rw,village,district,city_regency,province,religion,marital_status,occupation,citizenship,phone,email,registration_date)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
-                    (member_id, name, "active", nik, address),
+                    (member_id, name, "active", nik, address, birth_place, birth_date, sex, rt, rw, village, district, city_regency, province, religion, marital_status, occupation, citizenship, phone, email, registration_date),
                 )
                 c.commit()
             except Exception as exc:
@@ -65,7 +65,7 @@ class MemberManagementService:
                 raise
         return self.get(member_id)
 
-    def update(self, member_id, name=None, nik=None, address=None, status=None):
+    def update(self, member_id, name=None, nik=None, address=None, status=None, birth_place=None, birth_date=None, sex=None, rt=None, rw=None, village=None, district=None, city_regency=None, province=None, religion=None, marital_status=None, occupation=None, citizenship=None, phone=None, email=None, registration_date=None):
         current = self.get(member_id)
         if current is None:
             raise ValueError("member_not_found")
@@ -74,6 +74,22 @@ class MemberManagementService:
             "nik": current["nik"] if nik is None else ((nik or "").strip() or None),
             "address": current["address"] if address is None else ((address or "").strip() or None),
             "status": current["status"] if status is None else status,
+            "birth_place": current["birth_place"] if birth_place is None else birth_place,
+            "birth_date": current["birth_date"] if birth_date is None else birth_date,
+            "sex": current["sex"] if sex is None else sex,
+            "rt": current["rt"] if rt is None else rt,
+            "rw": current["rw"] if rw is None else rw,
+            "village": current["village"] if village is None else village,
+            "district": current["district"] if district is None else district,
+            "city_regency": current["city_regency"] if city_regency is None else city_regency,
+            "province": current["province"] if province is None else province,
+            "religion": current["religion"] if religion is None else religion,
+            "marital_status": current["marital_status"] if marital_status is None else marital_status,
+            "occupation": current["occupation"] if occupation is None else occupation,
+            "citizenship": current["citizenship"] if citizenship is None else citizenship,
+            "phone": current["phone"] if phone is None else phone,
+            "email": current["email"] if email is None else email,
+            "registration_date": current["registration_date"] if registration_date is None else registration_date,
         }
         if not values["name"]:
             raise ValueError("name_required")
@@ -84,11 +100,10 @@ class MemberManagementService:
                 c.execute(
                     """
                     UPDATE identity_members
-                    SET name=?,nik=?,address=?,status=?
+                    SET name=?,nik=?,address=?,status=?,birth_place=?,birth_date=?,sex=?,rt=?,rw=?,village=?,district=?,city_regency=?,province=?,religion=?,marital_status=?,occupation=?,citizenship=?,phone=?,email=?,registration_date=?
                     WHERE member_id=?
                     """,
-                    (values["name"], values["nik"], values["address"],
-                     values["status"], member_id),
+                    (values["name"], values["nik"], values["address"], values["status"], values["birth_place"], values["birth_date"], values["sex"], values["rt"], values["rw"], values["village"], values["district"], values["city_regency"], values["province"], values["religion"], values["marital_status"], values["occupation"], values["citizenship"], values["phone"], values["email"], values["registration_date"], member_id),
                 )
                 c.commit()
             except Exception as exc:
