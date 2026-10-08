@@ -15,7 +15,7 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 
 #define PN532_SDA 21
 #define PN532_SCL 22
-#define PN532_IRQ 34
+#define PN532_IRQ 39
 #define PN532_RESET 5
 #define RC522_SCK 18
 #define RC522_MISO 19
@@ -27,6 +27,15 @@ NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_S
 unsigned long lastHeartbeat=0,paymentSequence=0,depositSequence=0;
 bool readerReady=false;
 long paymentAmount=0;
+
+void lcdShow(String a,String b="");
+String readKeyDigits(const char* title,bool masked);
+long readCashierAmount();
+void cashierPayment(const String& credential,long amount,const String& seq,const String& pin);
+void cashierTopup(const String& credential,long amount,const String& seq,const String& operatorPin,const String& memberPin);
+void scanTopup(const String& operatorPin);
+void registrationScan(const String& session);
+void scanCard();
 
 String getJson(const String& path,int& code){
   HTTPClient http; http.begin(String(NVM_BASE_URL)+path);
@@ -50,7 +59,8 @@ String postJson(const String& path,const String& body,int& code){
 void heartbeat(){
   int code=0;
   String body="{\"device_type\":\"esp32-cashier\",\"status\":\"active\"}";
-  Serial.printf("HEARTBEAT %d %s\n",code,postJson(String("/api/v1/devices/")+DEVICE_ID+"/heartbeat",body,code).c_str());
+  String reply=postJson(String("/api/v1/devices/")+DEVICE_ID+"/heartbeat",body,code);
+  Serial.printf("HEARTBEAT %d %s\n",code,reply.c_str());
 }
 
 void connectWifi(){
@@ -148,13 +158,13 @@ void scanCard(){
   delay(700);
 }
 
-
-void lcdShow(String a,String b=""){
+void lcdShow(String a,String b){
   lcd.setCursor(0,0); lcd.print("                ");
   lcd.setCursor(0,0); lcd.print(a.substring(0,16));
   lcd.setCursor(0,1); lcd.print("                ");
   lcd.setCursor(0,1); lcd.print(b.substring(0,16));
 }
+
 String readKeyDigits(const char* title,bool masked){
   String s=""; lcdShow(title,"");
   while(true){
@@ -171,9 +181,11 @@ String readKeyDigits(const char* title,bool masked){
     delay(5);
   }
 }
+
 long readCashierAmount(){
-  return readKeyDigits("Nominal:","").toInt();
+  return readKeyDigits("Nominal:",false).toInt();
 }
+
 void setup(){
   Serial.begin(115200); delay(300); connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
