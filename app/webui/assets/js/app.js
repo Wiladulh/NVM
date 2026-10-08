@@ -48,9 +48,64 @@ async function loadMembers(){
 async function loadMemberList(){
   const token=$('memberAdminToken').value.trim(); if(!token)return;
   const {r,d}=await json('/api/v1/members',{headers:{'X-NVM-Admin-Token':token}});
-  if(r.ok)$('members').innerHTML=(d.members||[]).length?table(d.members,['member_id','name','nik','address','status','registration_date']):'<p class="hint" style="padding:16px;">Belum ada member terdaftar.</p>';
+  if(r.ok){
+    const rows=d.members||[];
+    $('members').innerHTML=rows.length?table(rows,['member_id','name','nik','address','status','registration_date']):'<p class="hint" style="padding:16px;">Belum ada member terdaftar.</p>';
+    const sel=$('nfcMemberId');
+    if(sel){
+      const current=sel.value;
+      sel.innerHTML='<option value="">Pilih member</option>'+rows.map(x=>'<option value="'+esc(x.member_id)+'">'+esc(x.member_id)+' — '+esc(x.name)+'</option>').join('');
+      if(rows.some(x=>x.member_id===current))sel.value=current;
+    }
+    await loadNfcCashiers();
+  }
 }
 $('memberForm').onsubmit=async e=>{e.preventDefault();await loadMembers()};
+let nfcPollTimer=null;
+async function loadNfcCashiers(){
+  const token=$('memberAdminToken')?.value.trim();
+  const sel=$('nfcCashierDevice');
+  if(!sel||!token)return;
+  const {r,d}=await json('/api/v1/devices',{headers:{'X-NVM-Admin-Token':token}});
+  if(!r.ok){sel.innerHTML='<option value="">Gagal memuat Cashier</option>';return}
+  const rows=(d.devices||[]).filter(x=>x.device_type==='esp32-cashier'&&x.status==='active');
+  sel.innerHTML=rows.length?'<option value="">Pilih Cashier</option>'+rows.map(x=>'<option value="'+esc(x.device_id)+'">'+esc(x.display_name||x.hardware_id)+' — '+esc(x.device_id)+'</option>').join(''):'<option value="">Tidak ada Cashier aktif</option>';
+}
+async function pollNfcRegistration(memberId,sessionId){
+  clearInterval(nfcPollTimer);
+  const check=async()=>{
+    const token=$('memberAdminToken').value.trim();
+    const {r,d}=await json('/api/v1/members/'+encodeURIComponent(memberId)+'/nfc-registration/'+encodeURIComponent(sessionId),{headers:{'X-NVM-Admin-Token':token}});
+    if(!r.ok){$('nfcRegistrationResult').textContent=d.detail||'Gagal membaca status registrasi NFC';clearInterval(nfcPollTimer);return}
+    if(d.status==='scan_pending')$('nfcRegistrationResult').textContent='Silakan scan kartu NFC pada Cashier. Menunggu hasil...';
+    else if(d.status==='completed'){
+      $('nfcRegistrationResult').textContent='Registrasi NFC berhasil. Kartu telah terdaftar pada member.';
+      clearInterval(nfcPollTimer);
+    }else{
+      $('nfcRegistrationResult').textContent='Status registrasi NFC: '+d.status;
+      if(d.status==='expired'||d.status==='failed')clearInterval(nfcPollTimer);
+    }
+  };
+  await check();
+  nfcPollTimer=setInterval(check,2000);
+}
+$('nfcMemberId').onchange=()=>{const v=$('nfcMemberId').value;if(v)$('memberId').value=v};
+$('nfcStart').onclick=async()=>{
+  try{
+    const token=$('memberAdminToken').value.trim(),memberId=$('nfcMemberId').value.trim(),deviceId=$('nfcCashierDevice').value.trim();
+    if(!token)throw new Error('Admin Token wajib diisi');
+    if(!memberId)throw new Error('Pilih member terlebih dahulu');
+    if(!deviceId)throw new Error('Pilih Cashier aktif terlebih dahulu');
+    const {r,d}=await json('/api/v1/members/'+encodeURIComponent(memberId)+'/nfc-registration/start',{
+      method:'POST',headers:{'Content-Type':'application/json','X-NVM-Admin-Token':token},
+      body:JSON.stringify({cashier_device_id:deviceId})
+    });
+    if(!r.ok)throw new Error(d.detail||'Gagal memulai registrasi NFC');
+    $('nfcRegistrationResult').textContent='Sesi NFC dimulai. Menunggu Cashier...';
+    await pollNfcRegistration(memberId,d.session_id);
+  }catch(e){$('nfcRegistrationResult').textContent=e.message}
+};
+
 async function loadDevices(){
   const token=$('deviceAdminToken').value.trim();
   if(!token){$('deviceAuthResult').textContent='Admin Token wajib diisi';return}
