@@ -379,8 +379,8 @@ def build_router(db, app_settings=None):
             c.execute(
                 """INSERT INTO device_registry
                    (device_id,hardware_id,device_type,mac_address,display_name,status,last_seen,
-                    auth_key_hash,auth_key_hint,updated_at)
-                   VALUES(?,?,?,?,?,'pending',CURRENT_TIMESTAMP,?,?,CURRENT_TIMESTAMP)""",
+                    auth_key_hash,auth_key_hint,created_at,updated_at)
+                   VALUES(?,?,?,?,?,'pending',CURRENT_TIMESTAMP,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)""",
                 (device_id,hardware_id,device_type,mac_address,hardware_id,digest,device_key[-6:]),
             )
             c.execute(
