@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.core.config import get_settings
 from app.core.db import Database
 from app.core.logging import configure_logging
@@ -15,6 +17,9 @@ def create_app():
     app.state.settings = s
     app.state.db = db
     app.include_router(build_router(db, s))
+    webui_dir = Path(__file__).resolve().parent / "webui"
+    app.mount("/assets", StaticFiles(directory=webui_dir / "assets"), name="webui-assets")
+    app.mount("/pages", StaticFiles(directory=webui_dir / "pages"), name="webui-pages")
 
     @app.get("/", response_class=HTMLResponse)
     def index():
