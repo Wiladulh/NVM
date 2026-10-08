@@ -116,4 +116,5 @@ $('backupRestore').onclick=async()=>{
     if(r.ok)setTimeout(()=>location.reload(),1000);
   }catch(e){$('backupResult').textContent=e.message}
 };
+document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
 load();
