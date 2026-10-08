@@ -187,11 +187,36 @@ def build_router(db, app_settings=None):
             products=c.execute("""SELECT product_id,machine_id,name,price,stock,capacity,slot,servo_channel,enabled
                    FROM vending_products ORDER BY machine_id,slot,product_id""").fetchall()
             devices=c.execute("SELECT device_id,device_type,status,last_seen FROM device_registry ORDER BY device_id").fetchall()
+            cashier_count=c.execute(
+                "SELECT COUNT(*) FROM payment_transactions WHERE transaction_source='CASHIER' AND status='completed'"
+            ).fetchone()[0]
+            cashier_out=c.execute(
+                "SELECT COALESCE(SUM(COALESCE(final_amount,amount)),0) FROM payment_transactions "
+                "WHERE transaction_source='CASHIER' AND status='completed' AND created_at>=date('now')"
+            ).fetchone()[0]
+            cashier_in=c.execute(
+                "SELECT COALESCE(SUM(amount),0) FROM cashier_deposits "
+                "WHERE status='completed' AND created_at>=date('now')"
+            ).fetchone()[0]
+            vending_count=c.execute(
+                "SELECT COUNT(*) FROM vending_transactions WHERE transaction_source='VENDING' AND status='completed'"
+            ).fetchone()[0]
+            vending_in=c.execute(
+                "SELECT COALESCE(SUM(amount),0) FROM vending_transactions "
+                "WHERE transaction_source='VENDING' AND status='completed' AND created_at>=date('now')"
+            ).fetchone()[0]
         return {"members":[dict(x) for x in members],
                 "accounts":[{**dict(x),"balance":financial.balance(x["account_id"])} for x in accounts],
                 "payments":[dict(x) for x in payments_rows],"loans":[dict(x) for x in loans],
                 "machines":[dict(x) for x in machines],"products":[dict(x) for x in products],
-                "devices":[dict(x) for x in devices]}
+                "devices":[dict(x) for x in devices],
+                "stats":{
+                    "cashier_transactions":cashier_count,
+                    "cashier_money_in_today":cashier_in,
+                    "cashier_money_out_today":cashier_out,
+                    "vending_transactions":vending_count,
+                    "vending_money_in_today":vending_in
+                }}
 
     def require_admin(token):
         configured = getattr(app_settings,"admin_token","")
