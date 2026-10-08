@@ -84,6 +84,22 @@ class Database:
                     )
                     continue
 
+                if path.name == "017_member_ktp.sql":
+                    columns = {row[1] for row in c.execute("PRAGMA table_info(identity_members)")}
+                    additions = {
+                        "birth_place": "TEXT", "birth_date": "TEXT", "sex": "TEXT",
+                        "rt": "TEXT", "rw": "TEXT", "village": "TEXT", "district": "TEXT",
+                        "city_regency": "TEXT", "province": "TEXT", "religion": "TEXT",
+                        "marital_status": "TEXT", "occupation": "TEXT", "citizenship": "TEXT",
+                        "phone": "TEXT", "email": "TEXT", "registration_date": "TEXT",
+                    }
+                    for name, definition in additions.items():
+                        if name not in columns:
+                            c.execute(f"ALTER TABLE identity_members ADD COLUMN {name} {definition}")
+                    c.execute("CREATE INDEX IF NOT EXISTS ix_member_nik ON identity_members(nik)")
+                    c.execute("INSERT OR IGNORE INTO system_meta(key,value) VALUES('member_ktp_schema_version','001')")
+                    continue
+
                 if path.name == "016_hardware_registry.sql":
                     device_columns = {row[1] for row in c.execute("PRAGMA table_info(device_registry)")}
                     additions = {
