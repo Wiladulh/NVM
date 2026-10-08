@@ -52,7 +52,26 @@ class MemberCreateRequest(BaseModel):
     email: str | None = None
     registration_date: str | None = None
 
-class MemberUpdateRequest(MemberCreateRequest):
+class MemberUpdateRequest(BaseModel):
+    name: str | None = None
+    nik: str | None = None
+    address: str | None = None
+    birth_place: str | None = None
+    birth_date: str | None = None
+    sex: str | None = None
+    rt: str | None = None
+    rw: str | None = None
+    village: str | None = None
+    district: str | None = None
+    city_regency: str | None = None
+    province: str | None = None
+    religion: str | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    citizenship: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    registration_date: str | None = None
     status: str | None = None
 
 class NfcCardRequest(BaseModel):
