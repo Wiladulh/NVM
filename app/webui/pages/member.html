@@ -28,6 +28,20 @@
       <div><button type="submit">Simpan Member</button></div>
     </form>
     <div id="memberAuthResult" class="hint"></div>
+    <section class="section">
+      <h3>Registrasi NFC Member</h3>
+      <p class="hint">Pilih member dan Cashier aktif. UID kartu dan PIN hanya diproses oleh Cashier; WebUI tidak meminta atau menyimpan PIN.</p>
+      <div class="grid">
+        <label>Member
+          <select id="nfcMemberId"><option value="">Pilih member</option></select>
+        </label>
+        <label>Cashier Aktif
+          <select id="nfcCashierDevice"><option value="">Memuat Cashier...</option></select>
+        </label>
+        <div><button type="button" id="nfcStart">Mulai Registrasi NFC</button></div>
+      </div>
+      <div id="nfcRegistrationResult" class="hint"></div>
+    </section>
     <div id="members" class="scroll"></div>
   </section>
 </div>
