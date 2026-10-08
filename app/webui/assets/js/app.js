@@ -29,16 +29,28 @@ async function load(){
 async function loadMembers(){
   const token=$('memberAdminToken').value.trim();
   if(!token){$('memberAuthResult').textContent='Admin Token wajib diisi';return}
+  const q={name:$('memberName').value.trim(),nik:$('memberNik').value.trim(),address:$('memberAddress').value.trim()||null,
+    birth_place:$('memberBirthPlace').value.trim()||null,birth_date:$('memberBirthDate').value||null,sex:$('memberSex').value||null,
+    rt:$('memberRt').value.trim()||null,rw:$('memberRw').value.trim()||null,village:$('memberVillage').value.trim()||null,
+    district:$('memberDistrict').value.trim()||null,city_regency:$('memberCity').value.trim()||null,province:$('memberProvince').value.trim()||null,
+    religion:$('memberReligion').value.trim()||null,marital_status:$('memberMarital').value.trim()||null,occupation:$('memberOccupation').value.trim()||null,
+    citizenship:$('memberCitizenship').value.trim()||null,phone:$('memberPhone').value.trim()||null,email:$('memberEmail').value.trim()||null,
+    registration_date:$('memberRegistrationDate').value||null};
   try{
-    const {r,d}=await json('/api/v1/members',{headers:{'X-NVM-Admin-Token':token}});
-    if(!r.ok)throw new Error(d.detail||'Gagal memuat member');
-    const rows=d.members||[];
-    $('memberAuthResult').textContent='Data member berhasil dimuat.';
-    $('members').innerHTML=rows.length?table(rows,['member_id','name','nik','address','status','created_at']):'<p class="hint" style="padding:16px;">Belum ada member terdaftar.</p>';
+    const id=$('memberId').value.trim();
+    const url=id?'/api/v1/members/'+encodeURIComponent(id):'/api/v1/members';
+    const {r,d}=await json(url,{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json','X-NVM-Admin-Token':token},body:JSON.stringify(id?{...q,status:$('memberStatus').value}:q)});
+    if(!r.ok)throw new Error(d.detail||'Gagal menyimpan member');
+    $('memberAuthResult').textContent='Member berhasil disimpan.';
+    await loadMemberList();
   }catch(e){$('memberAuthResult').textContent=e.message}
 }
-$('memberAuthForm').onsubmit=async e=>{e.preventDefault();await loadMembers()};
-
+async function loadMemberList(){
+  const token=$('memberAdminToken').value.trim(); if(!token)return;
+  const {r,d}=await json('/api/v1/members',{headers:{'X-NVM-Admin-Token':token}});
+  if(r.ok)$('members').innerHTML=(d.members||[]).length?table(d.members,['member_id','name','nik','address','status','registration_date']):'<p class="hint" style="padding:16px;">Belum ada member terdaftar.</p>';
+}
+$('memberForm').onsubmit=async e=>{e.preventDefault();await loadMembers()};
 async function loadDevices(){
   const token=$('deviceAdminToken').value.trim();
   if(!token){$('deviceAuthResult').textContent='Admin Token wajib diisi';return}
