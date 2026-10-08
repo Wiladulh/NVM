@@ -24,6 +24,66 @@ class Database:
 
         with self.connect() as c:
             for path in paths:
+                if path.name == "014_vending_promo_hardening.sql":
+                    columns = {row[1] for row in c.execute("PRAGMA table_info(vending_transactions)")}
+                    if "promo_id" not in columns:
+                        c.execute("ALTER TABLE vending_transactions ADD COLUMN promo_id TEXT")
+                        columns.add("promo_id")
+                    table_sql = c.execute(
+                        "SELECT sql FROM sqlite_master WHERE type='table' AND name='vending_transactions'"
+                    ).fetchone()
+                    sql_text = (table_sql[0] if table_sql and table_sql[0] else "").lower()
+                    if "amount integer not null check(amount>0)" in sql_text:
+                        c.execute("PRAGMA foreign_keys=OFF")
+                        c.execute("""
+                            CREATE TABLE vending_transactions_new(
+                                transaction_id TEXT PRIMARY KEY,
+                                machine_id TEXT NOT NULL REFERENCES vending_machines(machine_id),
+                                product_id TEXT NOT NULL REFERENCES vending_products(product_id),
+                                credential_id TEXT NOT NULL,
+                                account_id TEXT NOT NULL,
+                                amount INTEGER NOT NULL CHECK(amount>=0),
+                                status TEXT NOT NULL,
+                                dispense_status TEXT NOT NULL DEFAULT 'pending',
+                                idempotency_key TEXT UNIQUE,
+                                payment_transaction_id TEXT,
+                                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                completed_at TEXT,
+                                base_amount INTEGER,
+                                discount_amount INTEGER NOT NULL DEFAULT 0,
+                                payment_method TEXT NOT NULL DEFAULT 'NFC',
+                                payment_provider TEXT NOT NULL DEFAULT 'local',
+                                payment_status TEXT NOT NULL DEFAULT 'pending',
+                                transaction_source TEXT NOT NULL DEFAULT 'VENDING',
+                                promo_id TEXT
+                            )
+                        """)
+                        c.execute("""
+                            INSERT INTO vending_transactions_new(
+                                transaction_id,machine_id,product_id,credential_id,account_id,
+                                amount,status,dispense_status,idempotency_key,payment_transaction_id,
+                                created_at,completed_at,base_amount,discount_amount,
+                                payment_method,payment_provider,payment_status,transaction_source,promo_id
+                            )
+                            SELECT transaction_id,machine_id,product_id,credential_id,account_id,
+                                   amount,status,dispense_status,idempotency_key,payment_transaction_id,
+                                   created_at,completed_at,base_amount,discount_amount,
+                                   payment_method,payment_provider,payment_status,transaction_source,promo_id
+                            FROM vending_transactions
+                        """)
+                        c.execute("DROP TABLE vending_transactions")
+                        c.execute("ALTER TABLE vending_transactions_new RENAME TO vending_transactions")
+                        c.execute(
+                            "CREATE INDEX IF NOT EXISTS ix_vending_tx_machine_created "
+                            "ON vending_transactions(machine_id,created_at)"
+                        )
+                        c.execute("PRAGMA foreign_keys=ON")
+                    c.execute(
+                        "INSERT OR IGNORE INTO system_meta(key,value) "
+                        "VALUES('vending_promo_architecture_version','001')"
+                    )
+                    continue
+
                 if path.name == "013_feature_foundation.sql":
                     marker = c.execute(
                         "SELECT value FROM system_meta WHERE key='f01_schema_extension_version'"
