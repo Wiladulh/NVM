@@ -124,7 +124,7 @@ class PromotionService:
             raise ValueError("invalid_payment_method")
         now = now or self._now()
         with self.db.connect() as c:
-            rows = c.execute(
+            row = c.execute(
                 """
                 SELECT * FROM vending_promotion_policies
                 WHERE enabled=1
