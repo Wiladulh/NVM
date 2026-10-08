@@ -5,6 +5,7 @@
 #include <Adafruit_PN532.h>
 #include <MFRC522.h>
 
+// NVM NFC abstraction: application code never depends on a concrete reader.
 enum NvmReaderType { NVM_READER_NONE, NVM_READER_PN532, NVM_READER_RC522 };
 
 class NvmCardReader {
@@ -17,12 +18,16 @@ public:
 
   bool begin(int sda, int scl) {
     Wire.begin(sda, scl);
+    Wire.setClock(400000);
+
+    // Prefer PN532 when physically present; otherwise fall back to RC522.
     pn532.begin();
     uint32_t version = pn532.getFirmwareVersion();
     if (version) {
       pn532.SAMConfig();
       type = NVM_READER_PN532;
-      Serial.printf("NFC READY PN532 fw=%lu\n", (unsigned long)((version >> 24) & 0xFF));
+      Serial.printf("NFC READY PN532 fw=%lu\n",
+                    (unsigned long)((version >> 24) & 0xFF));
       return true;
     }
 
@@ -37,22 +42,30 @@ public:
     }
 
     type = NVM_READER_NONE;
-    Serial.println("NFC ERROR no PN532 or RC522 detected");
+    Serial.println("NFC ERROR: PN532/RC522 not detected");
     return false;
   }
 
   bool readUID(uint8_t* uid, uint8_t& len) {
-    if (type == NVM_READER_PN532)
-      return pn532.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &len, 50);
+    if (type == NVM_READER_PN532) {
+      uint8_t detectedLen = 0;
+      if (!pn532.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &detectedLen, 50))
+        return false;
+      len = detectedLen > 7 ? 7 : detectedLen;
+      return len > 0;
+    }
 
     if (type == NVM_READER_RC522) {
-      if (!rc522.PICC_IsNewCardPresent() || !rc522.PICC_ReadCardSerial()) return false;
+      if (!rc522.PICC_IsNewCardPresent() || !rc522.PICC_ReadCardSerial())
+        return false;
       len = rc522.uid.size > 7 ? 7 : rc522.uid.size;
-      for (uint8_t i=0; i<len; ++i) uid[i] = rc522.uid.uidByte[i];
+      for (uint8_t i = 0; i < len; ++i)
+        uid[i] = rc522.uid.uidByte[i];
       rc522.PICC_HaltA();
       rc522.PCD_StopCrypto1();
       return true;
     }
+
     return false;
   }
 
