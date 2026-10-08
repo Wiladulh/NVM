@@ -181,6 +181,28 @@ def build_router(db, app_settings=None):
             rows=c.execute("SELECT id,event_type,entity_type,entity_id,detail,created_at FROM audit_events ORDER BY id DESC LIMIT ?",(limit,)).fetchall()
         return {"events":[dict(x) for x in rows]}
 
+    @r.post("/devices/handshake")
+    def device_handshake(q: DeviceRegisterRequest):
+        """
+        Identity handshake for Cashier/Vending devices.
+        Registration may leave a device pending; operational APIs still require active status.
+        """
+        result = device_register(q)
+        with db.connect() as c:
+            row = c.execute(
+                """SELECT device_id,hardware_id,device_type,mac_address,display_name,
+                          status,last_seen,created_at,updated_at
+                   FROM device_registry WHERE device_id=?""",
+                (result["device_id"],),
+            ).fetchone()
+            c.execute(
+                "INSERT INTO device_events(device_id,event_type,payload) VALUES(?,?,?)",
+                (result["device_id"],"identity_handshake",
+                 q.model_dump_json(exclude={"device_key"})),
+            )
+            c.commit()
+        return {**dict(row), "handshake": "accepted"}
+
     @r.get("/devices/{device_id}/events")
     def device_events(device_id,limit:int=100):
         limit=max(1,min(limit,500))
