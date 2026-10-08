@@ -741,15 +741,15 @@ def build_router(db, app_settings=None):
         identity.set_pin(session["member_id"],q.pin)
         try:
             with db.connect() as c:
+                c.execute(
+                    "INSERT OR IGNORE INTO identity_credentials(credential_id,member_id,credential_type,status) VALUES(?,?, 'nfc','active')",
+                    (credential_id,session["member_id"])
+                )
                 if not duplicate:
                     c.execute(
                         "INSERT INTO member_nfc_cards(card_id,member_id,credential_id,card_uid,status) VALUES(?,?,?,?, 'active')",
                         ("nfc-"+uuid4().hex,session["member_id"],credential_id,card_uid)
                     )
-                c.execute(
-                    "INSERT OR IGNORE INTO identity_credentials(credential_id,member_id,credential_type,status) VALUES(?,?, 'nfc','active')",
-                    (credential_id,session["member_id"])
-                )
                 c.execute(
                     """UPDATE nfc_registration_sessions
                        SET status='completed',card_uid=?,credential_id=?,completed_at=CURRENT_TIMESTAMP
