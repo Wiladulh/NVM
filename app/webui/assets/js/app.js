@@ -26,6 +26,19 @@ async function load(){
   $('devices').innerHTML=table(d.devices,['device_id','device_type','status','last_seen']);
  }catch(e){$('status').textContent='● API offline'}
 }
+async function loadMembers(){
+  const token=$('memberAdminToken').value.trim();
+  if(!token){$('memberAuthResult').textContent='Admin Token wajib diisi';return}
+  try{
+    const {r,d}=await json('/api/v1/members',{headers:{'X-NVM-Admin-Token':token}});
+    if(!r.ok)throw new Error(d.detail||'Gagal memuat member');
+    const rows=d.members||[];
+    $('memberAuthResult').textContent='Data member berhasil dimuat.';
+    $('members').innerHTML=rows.length?table(rows,['member_id','name','nik','address','status','created_at']):'<p class="hint" style="padding:16px;">Belum ada member terdaftar.</p>';
+  }catch(e){$('memberAuthResult').textContent=e.message}
+}
+$('memberAuthForm').onsubmit=async e=>{e.preventDefault();await loadMembers()};
+
 async function loadDevices(){
   const token=$('deviceAdminToken').value.trim();
   if(!token){$('deviceAuthResult').textContent='Admin Token wajib diisi';return}
