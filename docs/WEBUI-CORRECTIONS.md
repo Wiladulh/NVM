@@ -46,3 +46,13 @@ Sesi enrollment harus memiliki timeout, status, korelasi permintaan, dan audit e
 ## 5. Batas implementasi
 
 Demo HTML tidak terhubung ke backend dan perangkat fisik. Perilaku di atas baru dianggap production-ready setelah API, database/migrasi, autentikasi/otorisasi, audit, dan firmware ESP32 Cashier/Vending mendukungnya. Cloudflare Tunnel bukan prasyarat untuk menguji enrollment NFC lokal secara offline.
+
+## 6. Vending Device Registry & selector dinamis
+
+- Tab **Vending & Inventory** harus memiliki dropdown mesin yang diisi dari daftar vending yang dikenali/terdaftar oleh server; bukan daftar Machine ID statis di HTML.
+- Setiap entri mesin mengikat identitas perangkat yang stabil: device name/Machine ID, MAC address, kredensial perangkat terdaftar, status heartbeat/online-offline, dan metadata lokasi/nama tampilan.
+- Contoh label lokasi yang ditampilkan admin: `Vending48cd1` → **Depan Natura**, mesin kedua → **Dalam Natura**, mesin ketiga → **Sekolahan**. Nama lokasi adalah metadata yang dapat diubah admin; jangan menganggap lokasi bisa disimpulkan dari MAC.
+- Dropdown dan tabel registry menampilkan nama lokasi, device name/Machine ID, MAC, dan status. Mesin offline tetap terlihat agar admin dapat memilih dan memeriksa katalog/stok terakhir yang diketahui, dengan status offline yang jelas.
+- Saat mesin dipilih, tabel katalog, stok, dan editor hanya menampilkan data milik mesin tersebut. Setiap mesin memiliki tepat lima Product ID (1–5); Product ID sama pada dua mesin tidak berbagi stok atau konfigurasi.
+- MAC address membantu identifikasi, tetapi bukan autentikasi yang cukup karena dapat dipalsukan. Implementasi nyata wajib mengikat perangkat melalui enrollment/credential perangkat dan heartbeat terautentikasi.
+- Pada demo GitHub Pages, daftar perangkat dan statusnya adalah data contoh statis di browser untuk memvalidasi UX. Deteksi/registrasi dinamis sebenarnya baru dibuat saat backend NVM diimplementasikan; jangan mengklaim demo melakukan auto-discovery jaringan nyata.
