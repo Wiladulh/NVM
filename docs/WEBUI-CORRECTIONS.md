@@ -127,3 +127,15 @@ Prinsip wajib:
 - Ekspor demo membuat file spreadsheet yang dapat dibuka dengan aplikasi spreadsheet. Data sumber tetap data contoh yang tersedia pada browser, bukan query transaksi historis dari server. Implementasi produksi harus menyaring berdasarkan periode waktu sebenarnya dan memasukkan metadata periode/timezone serta total yang dapat direkonsiliasi.
 - Kesalahan contoh waktu seperti menit `61` tidak digunakan; timestamp dibuat dari jam sistem saat ekspor sehingga nilai menit selalu valid.
 
+## 10. Dashboard Analytics — Volume Transaksi & Most Used Vending
+
+- Bagian **Volume Transaksi** menyediakan pilihan periode: harian (24 jam), mingguan (7 hari), bulanan (30 hari), dan tahunan (12 bulan); bukan grafik statis 7 hari.
+- Grafik harus berbentuk grafik tren yang mudah dibaca, dengan sumbu waktu, skala jumlah transaksi, dan nilai titik saat diarahkan/disentuh.
+- Ringkasan grafik menampilkan total transaksi, puncak trafik, trafik terendah, dan label waktu terjadinya puncak/terendah sesuai periode.
+- Bagian **Most Used Vending** ditempatkan setelah grafik volume transaksi dan memberi peringkat mesin berdasarkan jumlah transaksi berhasil selama periode yang dipilih.
+- Filter periode harus memengaruhi grafik, metrik puncak/terendah, insight trafik, dan peringkat Most Used Vending secara konsisten.
+- Dashboard perlu membantu admin mengidentifikasi jam/hari/bulan dengan trafik tinggi atau rendah untuk mengevaluasi strategi promo. Evaluasi produksi idealnya membandingkan periode sebelum/sesudah promo, tanpa menganggap korelasi sebagai bukti sebab-akibat.
+- Definisi produksi: hitung transaksi final berhasil berdasarkan waktu transaksi; keluarkan transaksi pending/gagal/refund sesuai aturan analitik yang disepakati; agregasikan berdasarkan jam, hari, tanggal, atau bulan.
+- Demo browser menggunakan data ilustrasi untuk memperlihatkan interaksi dan bentuk visual saja. Angka serta peringkat demo bukan data aktual dan tidak boleh digunakan untuk keputusan bisnis.
+- Implementasi produksi memerlukan query agregasi dari backend/database, zona waktu yang konsisten, dan filter periode yang sama untuk semua komponen dashboard.
+
