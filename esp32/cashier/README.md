@@ -56,3 +56,18 @@ Libraries: LiquidCrystal_I2C, Keypad, Adafruit PN532, MFRC522.
 ## Server configuration
 
 Set `WIFI_SSID`, `WIFI_PASSWORD`, `NVM_BASE_URL`, `DEVICE_ID`, and `NVM_DEVICE_KEY` in `NvmCashier.ino`. Provision the device key on the NVM server before testing the cashier. Set the member PIN through the NVM member PIN API and ensure the NFC credential is active and linked to an active member with an active savings account.
+
+
+## CSH-07 offline integration test
+
+Automated CI covers the server-side recovery case where a payment is committed but the response is lost: replaying the same idempotency key must return the original transaction, with one payment record and one ledger debit. A firmware contract test checks that a disconnected/ambiguous request stays pending in NVS and that the PIN is not persisted.
+
+Physical offline test checklist (after flashing the built firmware):
+
+1. Confirm the cashier is registered and can complete one normal NFC payment.
+2. Disconnect Wi-Fi or stop the NVM server, then start a payment attempt. The LCD must not show success; an uncertain result must show `HASIL BELUM ADA` / `Ulangi PIN`.
+3. Restore Wi-Fi/server. Enter the PIN to retry the pending payment. Do not clear NVS or start a different payment while pending.
+4. Check server ledger and payment history: one original transaction/debit only. Repeat only with a new test credential/account or a safely funded test account.
+5. Record LCD/Serial behavior and server transaction ID. CI cannot substitute for this physical network interruption test.
+
+**CSH-07 status:** automated integration checks are added; mark full offline integration PASS only after GitHub CI is green and the physical interruption/recovery test has been completed.
