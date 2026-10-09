@@ -85,3 +85,22 @@ Keputusan proses:
 - [ ] Baru setelah persetujuan: rencana implementasi produksi, lalu server/API/database dan firmware dengan tes terpisah.
 
 Catatan verifikasi terakhir: pemeriksaan sintaks JavaScript dan pemeriksaan kode statis untuk selector dinamis, filter per mesin, tiga nama lokasi contoh, MAC address, status offline, dan lima Product ID lulus. Ini **bukan** pengujian end-to-end di browser dan bukan bukti auto-discovery jaringan nyata.
+
+
+## 8. Standar kegunaan admin/teller dan penyamaran detail perangkat
+
+Perbaikan demo UI yang ditambahkan:
+- Riwayat pembayaran memiliki pencarian dan filter kanal NFC/QRIS serta status; tabel menampilkan referensi transaksi.
+- Panel rekonsiliasi demo memisahkan transaksi berhasil, menunggu, gagal, dan refund. Panel ini hanya ringkasan simulasi, bukan rekonsiliasi terhadap provider atau ledger produksi.
+- Tabel Member Registry juga menampilkan NIK dan pencarian mencakup Member ID, nama, serta NIK.
+- Alur top-up demo meminta nominal, referensi unik, keterangan/sumber setoran, dan konfirmasi sebelum membuat kredit ledger serta audit event. Data hanya hidup selama halaman terbuka.
+- Bagian Audit & Backup memuat matriks contoh peran Admin, Teller, dan Auditor. Ini dokumentasi UX saja; produksi harus menegakkan RBAC pada server/API.
+- Label perangkat pada WebUI memakai istilah fungsional seperti Terminal Kasir dan Pengendali Vending; identitas perangkat menggunakan nama netral seperti `CASHIER-01`. Tidak menampilkan nama keluarga chipset/controller pada UI.
+- Halaman Perangkat & Koneksi menunjukkan kemampuan operasional, status konektivitas, dan kebijakan offline-first tanpa mengungkap platform hardware yang digunakan.
+
+Prinsip wajib:
+- Jangan menampilkan nama chipset, board, model MCU, atau platform hardware pada halaman, tabel, status, notifikasi, pesan error, atau label perangkat yang dilihat admin/teller. Detail tersebut hanya boleh ada pada dokumentasi engineering internal bila diperlukan.
+- Nama perangkat, MAC address, status, dan last-seen adalah metadata operasional, bukan mekanisme autentikasi. Produksi tetap memerlukan credential perangkat terdaftar dan heartbeat terautentikasi.
+- Jangan mengklaim demo melakukan rekonsiliasi nyata, kontrol hak akses nyata, koneksi provider, atau tindakan server/perangkat fisik.
+- Untuk top-up dan jurnal, referensi harus unik; produksi harus menerapkan idempotency, validasi saldo/otorisasi, transaksi database atomik, audit, serta mekanisme reversal—bukan menghapus jejak lama.
+
