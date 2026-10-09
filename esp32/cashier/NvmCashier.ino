@@ -184,6 +184,7 @@ void scanCard(){
   uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
   if(!card.readUID(uid,len))return;
   String credential=uidToCredential(uid,len); ++paymentSequence;
+  cashierPrefs.putULong("pay_seq_counter",paymentSequence);
   lcdShow("Kartu diterima","PIN:");
   String pin=readKeyDigits("PIN:",true);
   Serial.printf("CARD %s -> %s amount=%ld\n",card.name(),credential.c_str(),paymentAmount);
@@ -222,6 +223,7 @@ long readCashierAmount(){
 void setup(){
   Serial.begin(115200); delay(300);
   cashierPrefs.begin("nvm-cashier",false);
+  paymentSequence=cashierPrefs.getULong("pay_seq_counter",0);
   pendingPayment=cashierPrefs.getBool("pay_pending",false);
   if(pendingPayment){
     pendingCredential=cashierPrefs.getString("pay_cred","");
