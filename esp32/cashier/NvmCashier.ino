@@ -111,7 +111,7 @@ void scanTopup(const String& operatorPin){
   long amount=readCashierAmount();
   if(amount<=0)return;
   lcdShow("Topup","Tap kartu");
-  uint8_t uid[7]={0},len=0;
+  uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
   while(!card.readUID(uid,len)){ if(WiFi.status()!=WL_CONNECTED)connectWifi(); delay(20); }
   String credential=uidToCredential(uid,len);
   lcdShow("Kartu diterima","PIN:");
@@ -123,7 +123,7 @@ void scanTopup(const String& operatorPin){
 
 void registrationScan(const String& session){
   lcdShow("REGISTRASI NFC","Silahkan scan");
-  uint8_t uid[7]={0},len=0;
+  uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
   while(!card.readUID(uid,len)){ if(WiFi.status()!=WL_CONNECTED)connectWifi(); delay(20); }
   String credential=uidToCredential(uid,len);
   lcdShow("Kartu diterima","PIN 4 digit:");
@@ -148,7 +148,7 @@ void pollRegistration(){
 
 void scanCard(){
   if(!readerReady||paymentAmount<=0)return;
-  uint8_t uid[7]={0},len=0;
+  uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
   if(!card.readUID(uid,len))return;
   String credential=uidToCredential(uid,len); ++paymentSequence;
   lcdShow("Kartu diterima","PIN:");
