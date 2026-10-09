@@ -53,7 +53,7 @@ void registrationScan(const String& session);
 void scanCard();
 
 String getJson(const String& path,int& code){
-  HTTPClient http; http.setConnectTimeout(5000); http.setTimeout(8000); http.begin(String(NVM_BASE_URL)+path);
+  HTTPClient http; http.setConnectTimeout(3000); http.setTimeout(5000); http.begin(String(NVM_BASE_URL)+path);
   http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY); code=http.GET();
   String out=code>0?http.getString():""; http.end(); return out;
 }
@@ -65,23 +65,32 @@ String jsonField(const String& body,const String& key){
 }
 
 String postJson(const String& path,const String& body,int& code){
-  HTTPClient http; http.begin(String(NVM_BASE_URL)+path);
+  HTTPClient http; http.setConnectTimeout(3000); http.setTimeout(8000); http.begin(String(NVM_BASE_URL)+path);
   http.addHeader("Content-Type","application/json");
   http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY); code=http.POST(body);
   String out=code>0?http.getString():""; http.end(); return out;
 }
 
 void heartbeat(){
+  if(WiFi.status()!=WL_CONNECTED){Serial.println("HEARTBEAT skipped: WiFi offline");return;}
   int code=0;
   String body="{\"device_type\":\"esp32-cashier\",\"status\":\"active\"}";
   String reply=postJson(String("/api/v1/devices/")+DEVICE_ID+"/heartbeat",body,code);
   Serial.printf("HEARTBEAT %d %s\n",code,reply.c_str());
 }
 
-void connectWifi(){
-  WiFi.mode(WIFI_STA); WiFi.begin(WIFI_SSID,WIFI_PASSWORD); Serial.print("WiFi");
-  while(WiFi.status()!=WL_CONNECTED){delay(500);Serial.print(".");}
-  Serial.printf("\nIP %s\n",WiFi.localIP().toString().c_str());
+bool connectWifi(unsigned long timeoutMs=10000){
+  if(WiFi.status()==WL_CONNECTED)return true;
+  WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true); WiFi.begin(WIFI_SSID,WIFI_PASSWORD);
+  Serial.print("WiFi reconnect");
+  unsigned long started=millis();
+  while(WiFi.status()!=WL_CONNECTED && millis()-started<timeoutMs){delay(250);Serial.print(".");}
+  if(WiFi.status()==WL_CONNECTED){
+    Serial.printf("\nIP %s\n",WiFi.localIP().toString().c_str());
+    return true;
+  }
+  Serial.println("\nWiFi unavailable; will retry");
+  return false;
 }
 
 String uidToCredential(const uint8_t* uid,uint8_t len){
@@ -100,7 +109,7 @@ void cashierPayment(const String& credential,long amount,const String& seq,const
               String(DEVICE_ID)+":"+seq+"\",\"pin\":\""+pin+"\"}";
   int code=0; String reply="";
   for(int attempt=1;attempt<=2;attempt++){
-    if(WiFi.status()!=WL_CONNECTED) connectWifi();
+    if(WiFi.status()!=WL_CONNECTED && !connectWifi(5000)){code=-1;delay(250);continue;}
     reply=postJson("/api/v1/cashier/payments",body,code);
     Serial.printf("PAYMENT attempt=%d code=%d %s\\n",attempt,code,reply.c_str());
     // Transport errors and server 5xx are ambiguous: retry the same key/body.
@@ -123,6 +132,14 @@ void cashierPayment(const String& credential,long amount,const String& seq,const
     lcdShow("GAGAL",reply.indexOf("invalid_pin")>=0?"PIN salah":"Tidak diizinkan"); delay(1800);
   }else if(code==409){
     lcdShow("GAGAL",reply.indexOf("insufficient_balance")>=0?"Saldo tidak cukup":"Transaksi ditolak"); delay(1800);
+  }else if(code==401 || code==403){
+    lcdShow("GAGAL","Device auth"); delay(1800);
+  }else if(code==404){
+    lcdShow("GAGAL","Device/API"); delay(1800);
+  }else if(code==422){
+    lcdShow("GAGAL","Data invalid"); delay(1800);
+  }else if(code==429){
+    lcdShow("GAGAL","Terlalu cepat"); delay(1800);
   }else{
     lcdShow("GAGAL","HTTP "+String(code)); delay(1800);
   }
@@ -145,7 +162,7 @@ void scanTopup(const String& operatorPin){
   if(amount<=0)return;
   lcdShow("Topup","Tap kartu");
   uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
-  while(!card.readUID(uid,len)){ if(WiFi.status()!=WL_CONNECTED)connectWifi(); delay(20); }
+  while(!card.readUID(uid,len)){ delay(20); }
   String credential=uidToCredential(uid,len);
   lcdShow("Kartu diterima","PIN:");
   String memberPin=readKeyDigits("PIN:",true);
@@ -157,7 +174,7 @@ void scanTopup(const String& operatorPin){
 void registrationScan(const String& session){
   lcdShow("REGISTRASI NFC","Silahkan scan");
   uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
-  while(!card.readUID(uid,len)){ if(WiFi.status()!=WL_CONNECTED)connectWifi(); delay(20); }
+  while(!card.readUID(uid,len)){ delay(20); }
   String credential=uidToCredential(uid,len);
   lcdShow("Kartu diterima","PIN 4 digit:");
   String pin=readKeyDigits("PIN 4 digit:",true);
@@ -180,7 +197,8 @@ void pollRegistration(){
 }
 
 void scanCard(){
-  if(!readerReady||paymentAmount<=0)return;
+  if(!readerReady){lcdShow("NFC ERROR","Cek reader");delay(1500);return;}
+  if(paymentAmount<=0)return;
   uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
   if(!card.readUID(uid,len))return;
   String credential=uidToCredential(uid,len); ++paymentSequence;
@@ -237,12 +255,13 @@ void setup(){
   lcd.init(); lcd.backlight();
   connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
+  if(!readerReady)Serial.println("ERROR: no supported NFC reader detected");
   if(pendingPayment) lcdShow("PAYMENT PENDING","Masukkan PIN");
   else lcdShow("KASIR NVM","1 Bayar 2 Topup");
 }
 
 void loop(){
-  if(WiFi.status()!=WL_CONNECTED)connectWifi();
+  if(WiFi.status()!=WL_CONNECTED)connectWifi(3000);
   // Resolve an ambiguous payment before permitting another transaction.
   // The PIN is re-entered and is never persisted in NVS.
   if(pendingPayment){
@@ -252,7 +271,7 @@ void loop(){
     return;
   }
   static unsigned long lastRegistrationPoll=0;
-  if(millis()-lastRegistrationPoll>=1000UL){lastRegistrationPoll=millis();pollRegistration();}
+  if(WiFi.status()==WL_CONNECTED && millis()-lastRegistrationPoll>=1000UL){lastRegistrationPoll=millis();pollRegistration();}
   if(millis()-lastHeartbeat>=30000UL){lastHeartbeat=millis();heartbeat();}
   char mode=0;
   while(!mode){
