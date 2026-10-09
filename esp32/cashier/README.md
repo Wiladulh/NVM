@@ -16,6 +16,15 @@
 - If the outcome remains uncertain, the cashier blocks new payments and asks for the PIN again to retry the same transaction. This allows the server to return the original transaction if it was already processed.
 - A definitive HTTP response clears the pending request. Do not erase the device NVS while a payment is pending; reconcile with the server first.
 
+## CSH-05 network and error handling
+
+- Wi-Fi reconnect attempts are bounded; the firmware remains responsive to later retries instead of waiting forever during startup or payment.
+- HTTP connect/read timeouts are set for GET and POST requests. Registration polling is skipped while offline; heartbeat reports the offline state to Serial rather than attempting an HTTP request without Wi-Fi.
+- NFC reader initialization failure is reported on Serial and LCD instead of silently ignoring payment attempts.
+- Payment errors show distinct messages for invalid PIN/authorization, missing device/API, invalid request data, rate limiting, insufficient balance, and rejected transactions.
+- Transport failures and HTTP 5xx keep the transaction pending; the firmware must reuse the same idempotency key and must not accept a new payment until the result is reconciled.
+- Network recovery and the exact behavior of the physical reader still require on-device testing. Never treat a timeout as proof that a payment failed.
+
 ## CSH-03 NFC reader abstraction
 
 Application code uses `NvmCardReader`, not concrete PN532/MFRC522 APIs.
