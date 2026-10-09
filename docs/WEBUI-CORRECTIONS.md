@@ -129,8 +129,11 @@ Prinsip wajib:
 
 ## 10. Dashboard Analytics — Volume Transaksi & Most Used Vending
 
-- Bagian **Volume Transaksi** menyediakan pilihan periode: harian (24 jam), mingguan (7 hari), bulanan (30 hari), dan tahunan (12 bulan); bukan grafik statis 7 hari.
-- Grafik harus berbentuk grafik tren yang mudah dibaca, dengan sumbu waktu, skala jumlah transaksi, dan nilai titik saat diarahkan/disentuh.
+- Bagian **Volume Transaksi** menyediakan tombol ringkas tanpa dropdown: `1d`, `1w`, `1m`, `3m`, `5m`, `1y`.
+- Grafik menggunakan blok/batang biru seperti visualisasi sebelumnya. Makin panjang rentang yang dipilih, makin rapat/kecil lebar batangnya agar skala waktu tetap terbaca: jam untuk 1d, hari untuk 1w/1m, minggu untuk 3m/5m, dan bulan untuk 1y.
+- Grafik menampilkan sumbu waktu, skala jumlah transaksi, dan nilai saat batang disentuh/diarahkan.
+- Ringkasan total, puncak, dan terendah dibuat kecil dan ditempatkan sejajar di sisi pemilihan periode bila lebar layar cukup.
+- Peringkat Most Used Vending hanya menampilkan nama lokasi/mesin yang mudah dikenali, misalnya “Depan Natura”, tanpa ID internal seperti `Vending48cd1`.
 - Ringkasan grafik menampilkan total transaksi, puncak trafik, trafik terendah, dan label waktu terjadinya puncak/terendah sesuai periode.
 - Bagian **Most Used Vending** ditempatkan setelah grafik volume transaksi dan memberi peringkat mesin berdasarkan jumlah transaksi berhasil selama periode yang dipilih.
 - Filter periode harus memengaruhi grafik, metrik puncak/terendah, insight trafik, dan peringkat Most Used Vending secara konsisten.
