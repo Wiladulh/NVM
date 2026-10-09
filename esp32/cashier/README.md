@@ -1,29 +1,42 @@
 # NVM ESP32 Cashier — NFC + PIN + LCD + Keypad
 
-Minimum cashier flow:
+## Cashier payment flow (CSH-04)
+
 1. Petugas memasukkan nominal dengan keypad 4x4 (# konfirmasi, * hapus).
-2. Pembeli menempelkan kartu NFC.
-3. ESP32 mencari rekening aktif milik credential tersebut.
-4. Pembeli memasukkan PIN 4–6 digit; LCD menampilkan *.
-5. ESP32 mengirim nominal + credential + PIN ke server NVM.
-6. Server memverifikasi credential dan PIN lalu melakukan debit pada Financial Core.
-7. LCD menampilkan SUKSES, saldo terpotong, dan saldo sisa. Saldo kurang/PIN salah ditolak.
+2. Pembeli menempelkan kartu NFC dan memasukkan PIN (ditampilkan sebagai *).
+3. ESP32 mengirim credential, nominal, PIN, dan idempotency key ke `/api/v1/cashier/payments`.
+4. Server memverifikasi device authorization, credential, PIN, dan saldo; server menjadi satu-satunya pihak yang mendebit Ledger.
+5. ESP32 menampilkan hasil server. Saldo tidak disimpan atau dihitung sebagai sumber kebenaran lokal.
 
-## Hardware
-- ESP32
-- LCD 16x2 I2C, address default 0x27
-- Keypad matrix 4x4
-- PN532 I2C atau RC522 SPI
+### Idempotency and uncertain outcomes
 
-## Wiring
-LCD: SDA 21, SCL 22.
-Keypad rows: 32,33,25,26. Columns: 13,14,16,17.
-PN532: SDA 21, SCL 22, IRQ 39, RESET 5.
-RC522: SCK 18, MISO 19, MOSI 23, SS 27, RST 4.
+- Payment sequence is persisted in ESP32 NVS so an ordinary reboot does not reuse earlier idempotency keys.
+- Before sending a payment, firmware stores only the pending credential, amount, and sequence in NVS. The member PIN is never persisted.
+- On transport timeout or HTTP 5xx, firmware retries the exact request with the same idempotency key.
+- If the outcome remains uncertain, the cashier blocks new payments and asks for the PIN again to retry the same transaction. This allows the server to return the original transaction if it was already processed.
+- A definitive HTTP response clears the pending request. Do not erase the device NVS while a payment is pending; reconcile with the server first.
+
+## CSH-03 NFC reader abstraction
+
+Application code uses `NvmCardReader`, not concrete PN532/MFRC522 APIs.
+
+- Tries PN532 over I2C first, then falls back to RC522 over SPI.
+- Reports the active reader with `name()` and `type`.
+- Supports UID lengths up to 10 bytes using `NVM_MAX_UID_LENGTH`.
+- Physical card-present/removal behavior still requires testing on the selected reader.
+
+## Hardware and wiring
+
+- ESP32, LCD 16x2 I2C (default address 0x27), keypad matrix 4x4.
+- LCD: SDA 21, SCL 22.
+- PN532: SDA 21, SCL 22, IRQ 39, RESET 5.
+- RC522: SCK 18, MISO 19, MOSI 23, SS/SDA 27, RST 4.
+- Keypad rows: 32,33,25,26. Columns: 13,14,16,17.
+
+GPIO39 is input-only and has no internal pull-up; ensure the PN532 board provides any required IRQ bias. Power reader modules at their supported voltage (RC522 is typically 3.3 V). Do not allow an LCD I2C backpack to pull ESP32 SDA/SCL directly to 5 V.
 
 Libraries: LiquidCrystal_I2C, Keypad, Adafruit PN532, MFRC522.
 
-## Server
-Set WIFI_SSID, WIFI_PASSWORD, and NVM_BASE_URL.
-Set PIN member melalui POST /api/v1/members/<member_id>/pin dengan body {"pin":"1234"}.
-Credential NFC harus aktif, terhubung ke member aktif, dan member harus mempunyai rekening savings aktif.
+## Server configuration
+
+Set `WIFI_SSID`, `WIFI_PASSWORD`, `NVM_BASE_URL`, `DEVICE_ID`, and `NVM_DEVICE_KEY` in `NvmCashier.ino`. Provision the device key on the NVM server before testing the cashier. Set the member PIN through the NVM member PIN API and ensure the NFC credential is active and linked to an active member with an active savings account.
