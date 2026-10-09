@@ -131,7 +131,10 @@ Prinsip wajib:
 
 - Bagian **Volume Transaksi** menyediakan tombol ringkas tanpa dropdown: `1d`, `1w`, `1m`, `3m`, `5m`, `1y`.
 - Grafik menggunakan blok/batang biru seperti visualisasi sebelumnya. Makin panjang rentang yang dipilih, makin rapat/kecil lebar batangnya agar skala waktu tetap terbaca: jam untuk 1d, hari untuk 1w/1m, minggu untuk 3m/5m, dan bulan untuk 1y.
-- Grafik menampilkan sumbu waktu, skala jumlah transaksi, dan nilai saat batang disentuh/diarahkan.
+- Grafik bergaya trading memakai crosshair/garis penunjuk saat pengguna menyentuh atau menggeser grafik; tooltip mengikuti posisi dan menampilkan waktu, jumlah transaksi, serta estimasi penjualan pada titik itu. Interaksi pointer harus mendukung desktop dan layar sentuh.
+- Lebar batang dihitung relatif terhadap jumlah titik dan lebar plot (bukan lebar tetap), dengan jarak proporsional yang konsisten di semua periode. Grafik tidak boleh terlalu rapat pada 1m atau terlalu renggang pada 1y.
+- Label sumbu waktu dikurangi secara adaptif agar tidak bertumpuk. Skala vertikal dan nilai tooltip mengikuti data periode terpilih.
+- Penjualan yang ditampilkan di demo adalah estimasi ilustratif saja; produksi harus memakai jumlah transaksi dan nominal penjualan agregat sebenarnya.
 - Ringkasan total, puncak, dan terendah dibuat kecil dan ditempatkan sejajar di sisi pemilihan periode bila lebar layar cukup.
 - Peringkat Most Used Vending hanya menampilkan nama lokasi/mesin yang mudah dikenali, misalnya “Depan Natura”, tanpa ID internal seperti `Vending48cd1`.
 - Ringkasan grafik menampilkan total transaksi, puncak trafik, trafik terendah, dan label waktu terjadinya puncak/terendah sesuai periode.
