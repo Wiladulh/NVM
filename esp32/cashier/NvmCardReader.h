@@ -54,6 +54,9 @@ public:
   // The caller must provide a buffer of at least NVM_MAX_UID_LENGTH bytes.
   bool readUID(uint8_t* uid, uint8_t& len) {
     len = 0;
+    if (type == NVM_READER_NONE)
+      return false;
+
     if (type == NVM_READER_PN532) {
       uint8_t detectedLen = 0;
       if (!pn532.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &detectedLen, 50))
