@@ -100,7 +100,9 @@ String uidToCredential(const uint8_t* uid,uint8_t len){
 }
 
 void cashierPayment(const String& credential,long amount,const String& seq,const String& pin){
-  if(amount<=0){Serial.println("ERR nominal must be positive");return;}
+  if(amount<=0){Serial.println("ERR nominal must be positive");lcdShow("GAGAL","Nominal invalid");delay(1200);return;}
+  lcdShow("Memproses bayar","Mohon tunggu");
+  Serial.printf("PAYMENT START credential=%s amount=%ld seq=%s\\n",credential.c_str(),amount,seq.c_str());
   // Persist transaction identity before network I/O. Never persist the PIN.
   savePendingPayment(credential,amount,seq);
   String body="{\"device_id\":\""+String(DEVICE_ID)+"\",\"credential_id\":\""+credential+
@@ -201,10 +203,12 @@ void scanCard(){
   if(paymentAmount<=0)return;
   uint8_t uid[NVM_MAX_UID_LENGTH]={0},len=0;
   if(!card.readUID(uid,len))return;
+  lcdShow("Kartu terbaca","Memeriksa...");
   String credential=uidToCredential(uid,len); ++paymentSequence;
   cashierPrefs.putULong("pay_seq_counter",paymentSequence);
-  lcdShow("Kartu diterima","PIN:");
-  String pin=readKeyDigits("PIN:",true);
+  lcdShow("Kartu diterima","Masukkan PIN");
+  Serial.printf("CARD READ reader=%s credential=%s\\n",card.name(),credential.c_str());
+  String pin=readKeyDigits("PIN (#=OK):",true);
   Serial.printf("CARD %s -> %s amount=%ld\n",card.name(),credential.c_str(),paymentAmount);
   cashierPayment(credential,paymentAmount,String(paymentSequence),pin);
   delay(700);
@@ -218,16 +222,22 @@ void lcdShow(String a,String b){
 }
 
 String readKeyDigits(const char* title,bool masked){
-  String s=""; lcdShow(title,"");
+  String s="";
+  auto renderInput=[&](){
+    String v="";
+    for(size_t i=0;i<s.length();++i) v+=masked?"*":String(s[i]);
+    lcdShow(title,v);
+  };
+  renderInput();
+  Serial.printf("INPUT START %s (digits; *=backspace; #=confirm)\\n",title);
   while(true){
     char k=nvmKeypad.getKey();
     if(k>='0'&&k<='9'&&s.length()<6){
-      s+=k; String v="";
-      for(size_t i=0;i<s.length();++i) v+=masked?"*":String(s[i]);
-      lcdShow(title,v);
+      s+=k; renderInput();
     }else if(k=='*'&&!s.isEmpty()){
-      s.remove(s.length()-1);
+      s.remove(s.length()-1); renderInput();
     }else if(k=='#'&&!s.isEmpty()){
+      Serial.printf("INPUT CONFIRMED %s length=%u\\n",title,(unsigned)s.length());
       return s;
     }
     delay(5);
@@ -255,9 +265,14 @@ void setup(){
   lcd.init(); lcd.backlight();
   connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
-  if(!readerReady)Serial.println("ERROR: no supported NFC reader detected");
-  if(pendingPayment) lcdShow("PAYMENT PENDING","Masukkan PIN");
-  else lcdShow("KASIR NVM","1 Bayar 2 Topup");
+  if(!readerReady){
+    Serial.println("ERROR: no supported NFC reader detected");
+    lcdShow("NFC ERROR","Cek koneksi");
+  }else{
+    Serial.printf("NFC READY reader=%s\\n",card.name());
+    if(pendingPayment) lcdShow("PAYMENT PENDING","Masukkan PIN");
+    else lcdShow("KASIR NVM","1 Bayar 2 Topup");
+  }
 }
 
 void loop(){
