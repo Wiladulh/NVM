@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include "NvmKeypad.h"
@@ -27,6 +28,20 @@ NvmCardReader card(PN532_IRQ,PN532_RESET,RC522_SCK,RC522_MISO,RC522_MOSI,RC522_S
 unsigned long lastHeartbeat=0,paymentSequence=0,depositSequence=0;
 bool readerReady=false;
 long paymentAmount=0;
+Preferences cashierPrefs;
+bool pendingPayment=false;
+String pendingCredential="",pendingSeq="";
+long pendingAmount=0;
+void savePendingPayment(const String& credential,long amount,const String& seq){
+  cashierPrefs.putBool("pay_pending",true); cashierPrefs.putString("pay_cred",credential);
+  cashierPrefs.putLong("pay_amount",amount); cashierPrefs.putString("pay_seq",seq);
+  pendingPayment=true; pendingCredential=credential; pendingAmount=amount; pendingSeq=seq;
+}
+void clearPendingPayment(){
+  cashierPrefs.putBool("pay_pending",false); cashierPrefs.remove("pay_cred");
+  cashierPrefs.remove("pay_amount"); cashierPrefs.remove("pay_seq");
+  pendingPayment=false; pendingCredential=""; pendingAmount=0; pendingSeq="";
+}
 
 void lcdShow(String a,String b="");
 String readKeyDigits(const char* title,bool masked);
@@ -38,7 +53,7 @@ void registrationScan(const String& session);
 void scanCard();
 
 String getJson(const String& path,int& code){
-  HTTPClient http; http.begin(String(NVM_BASE_URL)+path);
+  HTTPClient http; http.setConnectTimeout(5000); http.setTimeout(8000); http.begin(String(NVM_BASE_URL)+path);
   http.addHeader("X-NVM-Device-Key",NVM_DEVICE_KEY); code=http.GET();
   String out=code>0?http.getString():""; http.end(); return out;
 }
@@ -77,22 +92,40 @@ String uidToCredential(const uint8_t* uid,uint8_t len){
 
 void cashierPayment(const String& credential,long amount,const String& seq,const String& pin){
   if(amount<=0){Serial.println("ERR nominal must be positive");return;}
+  // Persist transaction identity before network I/O. Never persist the PIN.
+  savePendingPayment(credential,amount,seq);
   String body="{\"device_id\":\""+String(DEVICE_ID)+"\",\"credential_id\":\""+credential+
               "\",\"amount\":"+String(amount)+
               ",\"method\":\"NFC\",\"provider\":\"local\",\"idempotency_key\":\""+
               String(DEVICE_ID)+":"+seq+"\",\"pin\":\""+pin+"\"}";
-  int code=0; String reply=postJson("/api/v1/cashier/payments",body,code);
-  Serial.printf("PAYMENT %d %s\n",code,reply.c_str());
+  int code=0; String reply="";
+  for(int attempt=1;attempt<=2;attempt++){
+    if(WiFi.status()!=WL_CONNECTED) connectWifi();
+    reply=postJson("/api/v1/cashier/payments",body,code);
+    Serial.printf("PAYMENT attempt=%d code=%d %s\\n",attempt,code,reply.c_str());
+    // Transport errors and server 5xx are ambiguous: retry the same key/body.
+    if(code>0 && code<500) break;
+    delay(250);
+  }
+  if(code<=0 || code>=500){
+    lcdShow("HASIL BELUM ADA","Ulangi PIN");
+    Serial.printf("PAYMENT PENDING key=%s; same transaction must be retried\\n",
+                  (String(DEVICE_ID)+":"+seq).c_str());
+    return; // NVS pending record blocks new payments until reconciled.
+  }
+  clearPendingPayment();
   if(code==200){
     int p=reply.indexOf("\"balance\":");
     long bal=p>=0?reply.substring(p+10).toInt():0;
-    lcdShow("SUKSES","Terpotong Rp."+String(amount));
-    delay(1200);
-    lcdShow("Saldo sisa","Rp."+String(bal));
-    delay(2200);
-  }else if(code==403){lcdShow("GAGAL","PIN salah");delay(1800);}
-  else if(code==409){lcdShow("GAGAL","Saldo tidak cukup");delay(1800);}
-  else {lcdShow("GAGAL","Server "+String(code));delay(1800);}
+    lcdShow("SUKSES","Terpotong Rp."+String(amount)); delay(1200);
+    lcdShow("Saldo sisa","Rp."+String(bal)); delay(2200);
+  }else if(code==403){
+    lcdShow("GAGAL",reply.indexOf("invalid_pin")>=0?"PIN salah":"Tidak diizinkan"); delay(1800);
+  }else if(code==409){
+    lcdShow("GAGAL",reply.indexOf("insufficient_balance")>=0?"Saldo tidak cukup":"Transaksi ditolak"); delay(1800);
+  }else{
+    lcdShow("GAGAL","HTTP "+String(code)); delay(1800);
+  }
 }
 
 void cashierTopup(const String& credential,long amount,const String& seq,const String& operatorPin,const String& memberPin){
@@ -187,13 +220,34 @@ long readCashierAmount(){
 }
 
 void setup(){
-  Serial.begin(115200); delay(300); connectWifi(); heartbeat();
+  Serial.begin(115200); delay(300);
+  cashierPrefs.begin("nvm-cashier",false);
+  pendingPayment=cashierPrefs.getBool("pay_pending",false);
+  if(pendingPayment){
+    pendingCredential=cashierPrefs.getString("pay_cred","");
+    pendingAmount=cashierPrefs.getLong("pay_amount",0);
+    pendingSeq=cashierPrefs.getString("pay_seq","");
+    if(!pendingCredential.length() || pendingAmount<=0 || !pendingSeq.length()){
+      Serial.println("FATAL: pending payment metadata invalid; inspect device before new payments");
+      while(true) delay(1000);
+    }
+  }
+  connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
-  lcdShow("KASIR NVM","1 Bayar 2 Topup");
+  if(pendingPayment) lcdShow("PAYMENT PENDING","Masukkan PIN");
+  else lcdShow("KASIR NVM","1 Bayar 2 Topup");
 }
 
 void loop(){
   if(WiFi.status()!=WL_CONNECTED)connectWifi();
+  // Resolve an ambiguous payment before permitting another transaction.
+  // The PIN is re-entered and is never persisted in NVS.
+  if(pendingPayment){
+    lcdShow("PAYMENT PENDING","PIN utk ulangi");
+    String pin=readKeyDigits("PIN utk ulangi",true);
+    cashierPayment(pendingCredential,pendingAmount,pendingSeq,pin);
+    return;
+  }
   static unsigned long lastRegistrationPoll=0;
   if(millis()-lastRegistrationPoll>=1000UL){lastRegistrationPoll=millis();pollRegistration();}
   if(millis()-lastHeartbeat>=30000UL){lastHeartbeat=millis();heartbeat();}
