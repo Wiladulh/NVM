@@ -234,6 +234,7 @@ void setup(){
       while(true) delay(1000);
     }
   }
+  lcd.init(); lcd.backlight();
   connectWifi(); heartbeat();
   readerReady=card.begin(PN532_SDA,PN532_SCL);
   if(pendingPayment) lcdShow("PAYMENT PENDING","Masukkan PIN");
