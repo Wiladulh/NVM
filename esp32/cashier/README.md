@@ -71,3 +71,21 @@ Physical offline test checklist (after flashing the built firmware):
 5. Record LCD/Serial behavior and server transaction ID. CI cannot substitute for this physical network interruption test.
 
 **CSH-07 status:** automated integration checks are added; mark full offline integration PASS only after GitHub CI is green and the physical interruption/recovery test has been completed.
+
+
+## CSH-08 hardware validation
+
+CSH-08 is a **physical-device validation** stage; CI can verify the pin-map and reader abstraction contracts, but cannot certify wiring or card behavior. Run this checklist on the actual ESP32 DevKit and the selected peripherals:
+
+1. **Power and wiring:** common GND; ESP32 and RC522 at 3.3 V; LCD I2C pull-ups must not expose SDA/SCL to 5 V. Verify every pin against the table above before powering.
+2. **Boot and Wi-Fi:** flash the successful `ESP32 Cashier Build` artifact, configure Wi-Fi/server/device key, restart, and confirm an IP plus a successful heartbeat in Serial.
+3. **LCD:** confirm both rows are readable at boot, during keypad entry, while checking a card, during payment, and for success/error states.
+4. **Keypad:** test every digit, `*` backspace, and `#` confirmation. Confirm PIN entry displays asterisks only. Do not use a real member PIN for screenshots/log capture.
+5. **RC522:** tap a test card several times, remove it between taps, and confirm stable UID detection. If PN532 is connected instead, verify Serial reports `PN532`; the abstraction selects PN532 before falling back to RC522.
+6. **Payment end-to-end:** use a test member, test NFC credential, known PIN, and safely funded test savings account. Confirm the server reports one transaction and one ledger debit, while the LCD reports the server result.
+7. **Negative checks:** test unknown card, wrong PIN, insufficient test balance, reader disconnected at boot, and Wi-Fi unavailable. No unsuccessful or uncertain payment may be shown as successful.
+8. **Reboot/pending safety:** if a payment is pending, reboot without erasing NVS and confirm the firmware continues to require reconciliation of that same transaction before allowing a new payment.
+
+Record board model, reader model, LCD address, firmware commit, results, and any wiring changes. Never publish Wi-Fi credentials, device keys, PINs, or full sensitive logs.
+
+**CSH-08 PASS criteria:** the above applicable checks pass on the physical device and the CI hardware-contract tests plus firmware build are green. Until then, hardware validation remains pending; do not proceed to vending integration.
