@@ -104,3 +104,26 @@ Prinsip wajib:
 - Jangan mengklaim demo melakukan rekonsiliasi nyata, kontrol hak akses nyata, koneksi provider, atau tindakan server/perangkat fisik.
 - Untuk top-up dan jurnal, referensi harus unik; produksi harus menerapkan idempotency, validasi saldo/otorisasi, transaksi database atomik, audit, serta mekanisme reversal—bukan menghapus jejak lama.
 
+
+## 9. Penyederhanaan Member Identity dan Financial Core (revisi 2026-10-09)
+
+### Member & Identity
+- Satu identitas anggota digunakan di seluruh UI: `Member ID` format `NTR-00001`, dst.
+- Tidak ada Account ID terpisah di antarmuka. Untuk model data saat ini, identitas rekening simpanan utama menggunakan Member ID yang sama; setiap referensi ledger/transaksi mengarah ke Member ID.
+- Kolom tabel Member Registry: Member ID, Nama, NIK, Nomor HP, Credential NFC, Status.
+- Form pendaftaran menampilkan Member ID otomatis di urutan paling atas (read-only), lalu Nama lengkap, NIK, Nomor HP, pemilihan terminal kasir, dan proses Scan NFC/PIN.
+- ID demo mengikuti urutan data yang tersedia; produksi harus menghasilkan ID secara atomik di server/database.
+
+### Financial Core
+- Tabel saldo dibuat ringkas: Member ID, Nama, Saldo Simpanan, tombol (+).
+- Top-up hanya tersedia dari Financial Core, bukan di Member & Identity.
+- Form top-up meminta nominal, referensi unik, keterangan/sumber setoran, dan konfirmasi. Produksi tetap wajib memvalidasi otorisasi dan membukukan jurnal ledger secara atomik; demo hanya mengubah data dalam memori browser.
+
+### Ekspor laporan
+- Admin/Teller memilih jenis laporan: Penjualan Vending, Transaksi Kasir, atau Data Member.
+- Pilihan rentang: harian `1d`, mingguan `1w`, bulanan `1m`, tahunan `1y`.
+- Format timestamp nama file: `HHMMDDMMYY` = jam, menit, tanggal, bulan, dua digit tahun.
+- Contoh pola: `vend-HHMMDDMMYY-1d.xlsx`, `cash-HHMMDDMMYY-1m.xlsx`, dan `Memb-HHMMDDMMYY.xls`.
+- Ekspor demo membuat file spreadsheet yang dapat dibuka dengan aplikasi spreadsheet. Data sumber tetap data contoh yang tersedia pada browser, bukan query transaksi historis dari server. Implementasi produksi harus menyaring berdasarkan periode waktu sebenarnya dan memasukkan metadata periode/timezone serta total yang dapat direkonsiliasi.
+- Kesalahan contoh waktu seperti menit `61` tidak digunakan; timestamp dibuat dari jam sistem saat ekspor sehingga nilai menit selalu valid.
+
