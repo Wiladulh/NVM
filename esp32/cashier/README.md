@@ -18,7 +18,7 @@ Minimum cashier flow:
 ## Wiring
 LCD: SDA 21, SCL 22.
 Keypad rows: 32,33,25,26. Columns: 13,14,16,17.
-PN532: SDA 21, SCL 22, IRQ 34, RESET 5.
+PN532: SDA 21, SCL 22, IRQ 39, RESET 5.
 RC522: SCK 18, MISO 19, MOSI 23, SS 27, RST 4.
 
 Libraries: LiquidCrystal_I2C, Keypad, Adafruit PN532, MFRC522.
