@@ -56,3 +56,32 @@ Demo HTML tidak terhubung ke backend dan perangkat fisik. Perilaku di atas baru 
 - Saat mesin dipilih, tabel katalog, stok, dan editor hanya menampilkan data milik mesin tersebut. Setiap mesin memiliki tepat lima Product ID (1–5); Product ID sama pada dua mesin tidak berbagi stok atau konfigurasi.
 - MAC address membantu identifikasi, tetapi bukan autentikasi yang cukup karena dapat dipalsukan. Implementasi nyata wajib mengikat perangkat melalui enrollment/credential perangkat dan heartbeat terautentikasi.
 - Pada demo GitHub Pages, daftar perangkat dan statusnya adalah data contoh statis di browser untuk memvalidasi UX. Deteksi/registrasi dinamis sebenarnya baru dibuat saat backend NVM diimplementasikan; jangan mengklaim demo melakukan auto-discovery jaringan nyata.
+
+## 7. Alur kerja yang disepakati: DEMO dahulu, implementasi server belakangan
+
+Keputusan proses:
+- **Jangan mulai perombakan backend NVM atau firmware untuk butir UI ini sekarang.**
+- Sempurnakan dan tinjau demo GitHub Pages terlebih dahulu sampai pengguna menyatakan desain dan alurnya sesuai harapan serta siap diimplementasikan.
+- Koreksi berikutnya dilakukan pada demo dan dokumen spesifikasi yang sama, bukan membangun implementasi produksi lebih awal.
+- Setelah demo disetujui, gunakan dokumen ini sebagai spesifikasi implementasi untuk server/API/database dan firmware; petakan setiap butir ke pekerjaan implementasi dan tes agar tidak mengulang desain dari awal.
+- Label DEMO MODE harus tetap jelas. Data, status, pemindaian NFC, top-up, dan perubahan katalog di browser hanyalah simulasi lokal; jangan mengklaim ada koneksi server/perangkat sungguhan.
+- Jangan menghapus atau mengubah baseline sistem NVM yang sudah lulus tes hanya demi perubahan tampilan demo.
+
+### Checklist status demo saat checkpoint 2026-10-09
+
+- [x] Demo berada di `demo/index.html`; URL publik yang dituju: https://wiladulh.github.io/NVM/demo/
+- [x] Label DEMO MODE dan batasan simulasi browser.
+- [x] Member ID otomatis pada demo dengan format `NTR-00001`; tidak ada input Member ID manual.
+- [x] Form member: nama, NIK, dropdown cashier, dan tombol Scan.
+- [x] Alur pesan simulasi cashier: “Silakan scan kartu”, lalu “Silakan masukkan PIN transaksi”.
+- [x] Tombol + top-up di dekat saldo member; ledger kredit ditambahkan dalam simulasi demo.
+- [x] Product ID tetap 1–5; tidak ada tombol tambah produk atau input slot/servo.
+- [x] Dropdown vending menampilkan contoh lokasi Depan Natura, Dalam Natura, Sekolahan, device name/Machine ID, MAC, dan status.
+- [x] Memilih mesin memfilter katalog dan stok hanya untuk mesin tersebut; data lima Product ID per mesin terpisah.
+- [x] Mesin offline tetap ada di dropdown/registry dengan status offline.
+- [ ] Tinjauan visual dan interaksi langsung oleh pengguna pada browser.
+- [ ] Koreksi lanjutan sesuai umpan balik pengguna.
+- [ ] Persetujuan eksplisit pengguna bahwa demo sudah final/siap implementasi.
+- [ ] Baru setelah persetujuan: rencana implementasi produksi, lalu server/API/database dan firmware dengan tes terpisah.
+
+Catatan verifikasi terakhir: pemeriksaan sintaks JavaScript dan pemeriksaan kode statis untuk selector dinamis, filter per mesin, tiga nama lokasi contoh, MAC address, status offline, dan lima Product ID lulus. Ini **bukan** pengujian end-to-end di browser dan bukan bukti auto-discovery jaringan nyata.
