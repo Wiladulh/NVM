@@ -16,6 +16,13 @@
 - If the outcome remains uncertain, the cashier blocks new payments and asks for the PIN again to retry the same transaction. This allows the server to return the original transaction if it was already processed.
 - A definitive HTTP response clears the pending request. Do not erase the device NVS while a payment is pending; reconcile with the server first.
 
+## CSH-06 operator and member feedback
+
+- LCD shows reader readiness, card detection, payment progress, pending outcome, and payment result/error.
+- Keypad input accepts digits, uses `*` to delete the last digit, and `#` to confirm. PIN characters are masked on LCD.
+- Serial logs identify the reader, payment start, and input confirmation without logging the PIN.
+- A buzzer is intentionally deferred. Validate display readability and keypad behavior on the physical hardware.
+
 ## CSH-05 network and error handling
 
 - Wi-Fi reconnect attempts are bounded; the firmware remains responsive to later retries instead of waiting forever during startup or payment.
